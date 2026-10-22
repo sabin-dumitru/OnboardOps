@@ -130,13 +130,7 @@ These timings represent core Python processing latency, not end-to-end technicia
 
 ## Screenshots
 
-Capture a genuine screenshot after launching the app locally and exercising the sample request. Recommended image: the validation summary and generated checklist, with synthetic identifiers visible. Save it as `docs/screenshots/onboardops-demo.png`, then embed it here using:
-
-```markdown
-![OnboardOps running locally](docs/screenshots/onboardops-demo.png)
-```
-
-A screenshot is not included in this source package because the current build environment did not have Streamlit installed and could not reach the package index. Do not substitute a mockup for a screenshot of the running application.
+<img width="2501" height="1328" alt="Screenshot 2026-10-22 123643" src="https://github.com/user-attachments/assets/6923482e-3eb2-4e67-9854-90963b9d7289" />
 
 ## Limitations and future improvements
 
@@ -157,7 +151,3 @@ Potential future improvements, only if useful:
 ## Security and privacy
 
 Use synthetic identities and fictional asset references in demos. Do not import employer data or production credentials. Keep `.env`, Streamlit secrets, virtual environments, caches, and local outputs out of version control. Review `git status` before committing. OnboardOps is a planning aid, not a security control or a substitute for approved IT processes.
-
-## License
-
-No license is currently specified. Add one before inviting reuse if you want to grant explicit permissions to others.
