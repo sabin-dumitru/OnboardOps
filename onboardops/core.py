@@ -95,9 +95,20 @@ def parse_request_file(filename: str, content: bytes | str) -> dict[str, Any]:
     return request
 
 
-def validate_request(request: dict[str, Any], existing_ids: set[str] | None = None) -> list[dict[str, str]]:
-    """Return actionable validation findings with severity, field and message."""
+def validate_request(
+    request: dict[str, Any],
+    existing_ids: set[str] | None = None,
+    existing_asset_tags: set[str] | None = None,
+    existing_serial_numbers: set[str] | None = None,
+) -> list[dict[str, str]]:
+    """Return actionable validation findings with severity, field and message.
+
+    Existing identifiers and asset references are optional synthetic inventory
+    context. The function never queries an external inventory system.
+    """
     existing_ids = {x.strip().casefold() for x in (existing_ids or set())}
+    existing_asset_tags = {x.strip().casefold() for x in (existing_asset_tags or set())}
+    existing_serial_numbers = {x.strip().casefold() for x in (existing_serial_numbers or set())}
     findings: list[dict[str, str]] = []
 
     def add(severity: str, field: str, message: str) -> None:
@@ -135,8 +146,28 @@ def validate_request(request: dict[str, Any], existing_ids: set[str] | None = No
         add("warning", "Laptop", "No laptop requested; confirm whether this is a BYOD or non-standard onboarding.")
     if request.get("laptop_required") and not str(request.get("asset_tag", "")).strip():
         add("warning", "Asset tag", "Laptop requested but no asset tag is assigned yet.")
-    if request.get("laptop_required") and not str(request.get("serial_number", "")).strip():
+    asset_tag_value = str(request.get("asset_tag", "")).strip()
+    serial_value = str(request.get("serial_number", "")).strip()
+    if request.get("laptop_required") and not serial_value:
         add("warning", "Serial number", "Record the laptop serial number when equipment is allocated.")
+    if not request.get("laptop_required") and (asset_tag_value or serial_value):
+        add("warning", "Laptop equipment", "Asset tag or serial number is present although no laptop is requested; confirm the equipment selection.")
+    if asset_tag_value and asset_tag_value.casefold() in existing_asset_tags:
+        add("error", "Asset tag", "This asset tag is already assigned in the loaded synthetic inventory records.")
+    if serial_value and serial_value.casefold() in existing_serial_numbers:
+        add("error", "Serial number", "This serial number is already assigned in the loaded synthetic inventory records.")
+
+    accessories = request.get("accessories", []) or []
+    if not isinstance(accessories, list):
+        add("error", "Accessories", "Accessories must be a list of supported equipment names.")
+        accessories = []
+    supported_accessories = {"monitor", "keyboard", "mouse", "headset", "dock"}
+    unknown_accessories = sorted({str(item).strip() for item in accessories if str(item).strip() and str(item).strip() not in supported_accessories})
+    if unknown_accessories:
+        add("error", "Accessories", "Unsupported accessory value(s): " + ", ".join(unknown_accessories) + ". Use monitor, keyboard, mouse, headset, or dock.")
+    normalised_accessories = [str(item).strip().casefold() for item in accessories if str(item).strip()]
+    if len(normalised_accessories) != len(set(normalised_accessories)):
+        add("warning", "Accessories", "Duplicate accessory entries were supplied; review the equipment request.")
 
     applications = request.get("applications", []) or []
     accesses = request.get("access_requests", []) or []

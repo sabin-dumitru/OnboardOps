@@ -1,92 +1,163 @@
 # OnboardOps
 
-**A small local-first IT onboarding checklist and equipment-record helper, built with Python and Streamlit.** This is a personal portfolio project using synthetic demonstration data. It is not a production IT management system.
+**A local-first Python and Streamlit tool that turns an onboarding request into a validated technician checklist and hardware allocation report.**
+
+OnboardOps is a personal portfolio project developed with AI assistance. It uses synthetic demonstration data only. It is not a production IT management system and has not been deployed or used by a real IT department.
+
+## The problem
+
+IT onboarding repeats a familiar set of administrative steps: confirm the request, prepare a device, verify approved software and access, record equipment, test the setup, and document handover. Repeating these steps manually can make omissions harder to spot.
+
+OnboardOps standardises the *planning and documentation* part of that work. It does not perform the actual device setup or provision accounts.
 
 ## What it does
 
-- Collects a fictional new-joiner request with a date, team, location, OS, equipment, requested apps/access, and optional inventory identifiers.
-- Imports exactly one synthetic request from a JSON object or one-row CSV file, then runs the same validation, checklist generation, and export pipeline. CSV list fields (`accessories`, `applications`, `access_requests`) use semicolon separators.
-- Validates required fields, ISO dates, supported operating systems, duplicate demo IDs, and common follow-up gaps.
-- Generates a deterministic checklist from editable JSON templates, including Windows/macOS-specific prompts and requested application/access verification tasks.
-- Exports a Markdown checklist and CSV equipment allocation record.
-- Uses no APIs, credentials, database, or external services. It does not create accounts, grant permissions, enroll endpoints, assign licences, or write to ticketing/inventory systems.
+- Accepts one onboarding request from a JSON object, a single-row CSV, or the manual-entry form.
+- Validates required fields, date and operating-system formats, duplicate demo identifiers, duplicate asset/serial references against bundled synthetic records, accessory values, and common inconsistencies.
+- Generates a deterministic checklist tailored to Windows or macOS, selected equipment, requested applications, explicit access requests, and configurable role-review prompts.
+- Produces a Markdown checklist and CSV equipment allocation report. Equipment remains marked as needing allocation/verification.
+- Reports blocking errors separately from follow-up warnings. A draft can be inspected when errors exist, but the UI marks it as not ready for use.
+- Keeps generated exports in memory in the web UI. The console demo writes local files without overwriting existing artifacts.
+- Runs without external APIs, paid services, AI calls, production credentials, or integrations.
 
-## Requirements
+## Example scenarios
 
-- Python 3.10 or newer
-- `pip`
+| Example | Expected result |
+|---|---|
+| `data/examples/windows_request.csv` | Windows updates, management and BitLocker prompts; selected accessories; per-application and access verification tasks |
+| `data/examples/macos_request.json` | macOS updates, MDM and FileVault prompts; different equipment and software tasks |
+| `data/examples/invalid_request.json` | Blocking findings for an invalid date and unsupported OS, plus warnings for missing asset details and absent software/access requests |
 
-## Install and launch
+CSV list fields (`accessories`, `applications`, `access_requests`) are separated with semicolons. JSON list fields use arrays.
+
+## Quick start
+
+Requirements: Python 3.10+ and pip.
 
 ```bash
 python -m venv .venv
-# macOS/Linux
+
+# macOS / Linux
 source .venv/bin/activate
-# Windows PowerShell: .venv\Scripts\Activate.ps1
+
+# Windows PowerShell (use this instead of the command above)
+.venv\Scripts\Activate.ps1
+
 python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Streamlit prints a local URL (normally `http://localhost:8501`). Open it in your browser. No internet connection is needed after dependencies are installed.
+Open the local URL Streamlit prints, normally `http://localhost:8501`.
 
-## Quick demo
+### First demo
 
-1. Run `streamlit run app.py`. Use the sidebar to import `data/examples/windows_request.csv` or `data/examples/macos_request.json`, then click **Import and process request**.
-2. Review the generated tasks and validation indicators. Windows requests receive Windows update/management/BitLocker prompts; macOS requests receive macOS update/MDM/FileVault prompts. Each requested application and access item adds its own technician verification task. Equipment selections add allocation tasks and inventory CSV rows.
-3. Download the `.md` checklist and `.csv` inventory record.
-4. Import `data/examples/invalid_request.json` to see the invalid date, unsupported OS, and missing inventory/application/access follow-ups. Try identifier `DEMO-1042` to test duplicate detection against the shipped sample record.
-5. Edit `config/templates.json` to adapt checklist prompts to a fictional or generic environment. Do not put company secrets or real employee data in this repository.
+1. Select **Load sample request** or import `data/examples/windows_request.csv` from the sidebar.
+2. Review the validation status and the generated checklist.
+3. Open the **Hardware allocation** tab and download the CSV.
+4. Import `data/examples/macos_request.json` and compare the OS-specific tasks.
+5. Import `data/examples/invalid_request.json` to see actionable validation findings.
+6. Download the Markdown checklist and inspect its pre-flight findings and handover prompts.
 
-For a console walkthrough of request → validation → checklist → exports, run `python scripts/demo.py`. To measure the deterministic processing pipeline, run `python scripts/benchmark_automation.py`.
+For a terminal walkthrough that prints the incoming request, findings, checklist excerpt, and local export paths:
 
-## Automation logic
+```bash
+python scripts/demo.py
+```
 
-1. `parse_request_file()` accepts one JSON object (or a list containing exactly one object) or a CSV with exactly one data row. Malformed files, unsupported file types, and multi-row CSV files are rejected with actionable errors.
-2. `validate_request()` checks identifier format/duplicates, ISO date, supported OS, required identity fields, ticket/location/team follow-ups, equipment identifiers, and whether software/access requests need confirmation. Blocking errors are distinct from warnings.
-3. `generate_checklist()` combines standard tasks, the chosen OS task set, requested equipment, and one explicit verification task for each requested application and access item. It does not infer permissions from job title.
-4. Configurable role rules add review prompts for Design/Creative, Content/Editorial, and Support/Customer Operations teams. These rules never assign software or infer permissions. `render_markdown()` and `render_inventory_csv()` create downloadable artifacts. Asset rows remain pending until a technician verifies allocation in the authoritative inventory. CSV text is guarded against common spreadsheet-formula injection prefixes.
+The console demo uses exclusive file creation; repeated runs create a numbered filename instead of overwriting an existing output.
 
-## Tests
+## Tests and continuous integration
+
+Run the complete unit suite:
 
 ```bash
 python -m unittest discover -s tests -v
 python -m compileall -q app.py onboardops tests scripts
+python scripts/demo.py
 ```
 
-The test suite includes three named synthetic cases in `data/test_cases.json`: valid Windows, valid macOS, and invalid/incomplete. Additional tests cover CSV/JSON import, malformed files, invalid UTF-8, multiple CSV rows, extra CSV values and duplicate headers, invalid booleans, duplicate IDs and applications, unique task IDs, multiple software requests, role-specific review prompts, CSV formula-injection mitigation, no-overwrite file writing, validation findings, OS-specific tasks, and exports. The current suite has **19 tests; all 19 passed** using `python -m unittest discover -s tests -v`. `python -m compileall -q app.py onboardops tests scripts` also passed. Streamlit could not be installed in this network-restricted environment, so browser-level behaviour remains unverified.
+The suite covers valid Windows and macOS requests, invalid/incomplete requests, duplicate identifiers and asset references, malformed JSON/CSV, invalid UTF-8, unsupported extensions, duplicate CSV headers, extra CSV values, boolean parsing, multiple software requests, role-specific review tasks, duplicate/unsupported accessories, formula-injection mitigation, export content, and no-overwrite file writing.
 
-## Project structure
+GitHub Actions runs the tests, compilation check, and console demonstration on pushes and pull requests. A green workflow confirms these automated checks pass; it does not replace manually launching and checking the Streamlit browser UI.
+
+## How the automation works
 
 ```text
-app.py                      Streamlit interface
-onboardops/core.py           Validation, checklist generation, Markdown/CSV exports
-config/templates.json        Editable standard, OS-specific, and equipment templates
-data/sample_requests.json    Synthetic example request
-data/test_cases.json          Windows, macOS, and invalid test cases
-data/examples/                Importable synthetic JSON/CSV requests
-tests/test_core.py            Unit tests
-scripts/demo.py               Console workflow demonstration
-scripts/benchmark_automation.py Core processing timing benchmark
-requirements.txt             Minimal runtime dependency
-DEMO_GUIDE.md                Recruiter-facing walkthrough
-BENCHMARK.md                 Blank timing worksheet and measurement protocol
-outputs/                     Reserved for local generated files (not committed)
+CSV / JSON / manual form
+          |
+          v
+   Parse and normalise
+          |
+          v
+  Validate request and
+  known synthetic records
+          |
+          v
+  Config-driven checklist
+  (OS + equipment + apps +
+   access + role review)
+          |
+          v
+  Markdown checklist + CSV
+  asset allocation report
 ```
 
-## Architecture and design decisions
+- `app.py` owns the Streamlit presentation and form state.
+- `onboardops/core.py` contains parsing, validation, deterministic generation, rendering, and safe local file writing.
+- `config/templates.json` contains standard tasks, Windows/macOS tasks, equipment prompts, defaults, and role-review rules.
+- `data/examples/` contains importable synthetic requests.
+- `tests/test_core.py` tests the business logic without needing Streamlit to run.
+- `scripts/demo.py` demonstrates the workflow; `scripts/benchmark_automation.py` measures core processing latency.
 
-The business logic lives in `onboardops/core.py` and uses only the Python standard library. `app.py` handles the UI. Checklist templates and role review prompts are external JSON so routine wording and categories can be changed without editing Python. The Streamlit app generates exports in memory and offers browser downloads; it does not persist submitted requests. The console demo writes files under `outputs/` using exclusive creation and numeric suffixes, so existing artifacts are not overwritten. Validation findings are divided into blocking errors and follow-up warnings. An error does not suppress the draft checklist, but the UI clearly marks it as not ready for use.
+### Rules and safety choices
 
-## Limitations and safe use
+- OS rules add relevant prompts: Windows includes Windows update/management/BitLocker checks; macOS includes macOS update/MDM/FileVault checks. These are prompts to follow the organisation's approved process, not assumptions about every environment.
+- Each requested application gets a licence/installation verification task; each requested access item gets an explicit approval-verification task. Job title never grants or implies access.
+- Role rules add review prompts only. They do not auto-select software or infer permissions.
+- Known asset tags and serial numbers are compared only against the bundled synthetic sample inventory. This is a demo safeguard, not a live inventory check.
+- CSV export escapes values beginning with common spreadsheet formula characters.
+- The app does not save submitted requests to a database or send them externally.
 
-- All sample people, identifiers, ticket references, serials, and asset tags are synthetic.
-- Application names and access requests are prompts for technician verification only. Job titles never infer privileges, and the tool does not determine approval.
-- Device enrolment, encryption, endpoint protection, MFA, licence allocation, and identity steps must be checked against the actual organisation's approved procedures.
-- Duplicate employee-ID detection checks the shipped synthetic sample records only; it is not a substitute for querying an authoritative inventory or ticketing platform. Duplicate application/access entries within a request are flagged for cleanup.
-- CSV exports prefix untrusted values that start with common spreadsheet formula characters. This is a mitigation for common spreadsheet applications, not a general-purpose data sanitisation guarantee.
-- The checklist checkboxes in the UI are session-only visual controls and are not saved to a system of record. The downloaded Markdown is the portable handover artifact.
-- No manual-versus-automated time saving has been established. `scripts/benchmark_automation.py` measures only core Python processing latency; it excludes browser interaction and human review. Follow `BENCHMARK.md` to collect comparable end-to-end timings before making efficiency claims.
+## Benchmark and measured value
+
+The benchmark script uses `time.perf_counter()` for 100 repetitions per synthetic case. It measures validation, checklist generation, and in-memory Markdown/CSV rendering only.
+
+```bash
+python scripts/benchmark_automation.py
+```
+
+These timings represent core Python processing latency, not end-to-end technician time. **Manual-versus-automated checklist preparation time has not been measured**, so this project makes no quantified time-saving or productivity claim. Use `BENCHMARK.md` for the paired manual-versus-automated measurement procedure, including what to time and how to record omissions and corrections. Actual device provisioning and account setup are out of scope.
+
+## Screenshots
+
+Capture a genuine screenshot after launching the app locally and exercising the sample request. Recommended image: the validation summary and generated checklist, with synthetic identifiers visible. Save it as `docs/screenshots/onboardops-demo.png`, then embed it here using:
+
+```markdown
+![OnboardOps running locally](docs/screenshots/onboardops-demo.png)
+```
+
+A screenshot is not included in this source package because the current build environment did not have Streamlit installed and could not reach the package index. Do not substitute a mockup for a screenshot of the running application.
+
+## Limitations and future improvements
+
+Current limitations:
+- No real identity, ticketing, endpoint-management, licensing, or inventory integration.
+- No account creation, access changes, device enrolment, or licence assignment.
+- Asset collision checks use only bundled synthetic records.
+- No persistent audit history; requests in the web UI remain in session state.
+- Browser-level UI behaviour must be checked after installing dependencies locally.
+- No manual-versus-automated time-saving result is claimed.
+
+Potential future improvements, only if useful:
+1. Add a small, optional CSV/JSON batch preview while preserving one-request-per-run validation.
+2. Add a local, privacy-conscious history of generated plan metadata without retaining employee names or request contents.
+3. Add a manually verified screenshot and a measured paired benchmark.
+4. Add more tests or UI automation only if a new feature justifies them.
+
+## Security and privacy
+
+Use synthetic identities and fictional asset references in demos. Do not import employer data or production credentials. Keep `.env`, Streamlit secrets, virtual environments, caches, and local outputs out of version control. Review `git status` before committing. OnboardOps is a planning aid, not a security control or a substitute for approved IT processes.
 
 ## License
 
-For portfolio/demo use. Add a license of your choice before accepting contributions or redistributing if needed.
+No license is currently specified. Add one before inviting reuse if you want to grant explicit permissions to others.

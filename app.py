@@ -23,10 +23,13 @@ st.markdown("""
 <div class="hero"><h1>🧭 OnboardOps</h1><p>Turn a new-joiner request into a consistent technician checklist and equipment allocation record.</p></div>
 """, unsafe_allow_html=True)
 st.caption("Local-first portfolio demo · Synthetic data only · No accounts, permissions, or devices are changed")
+st.info("Workflow: import or enter one request → validate it → review the tailored checklist → export Markdown and asset CSV. All generated actions are technician prompts, not provisioning.")
 
 try:
     templates = load_templates(ROOT / "config" / "templates.json")
     sample_records = json.loads((ROOT / "data" / "sample_requests.json").read_text(encoding="utf-8"))
+    known_asset_tags = {str(r.get("asset_tag", "")).strip().casefold() for r in sample_records if r.get("asset_tag")}
+    known_serial_numbers = {str(r.get("serial_number", "")).strip().casefold() for r in sample_records if r.get("serial_number")}
 except (OSError, json.JSONDecodeError, KeyError) as exc:
     st.error(f"Configuration could not be loaded: {exc}")
     st.stop()
@@ -64,7 +67,7 @@ with st.sidebar:
         try:
             imported = parse_request_file(uploaded_request.name, uploaded_request.getvalue())
             duplicate_ids = {str(r.get("employee_id", "")).casefold() for r in sample_records}
-            findings = validate_request(imported, duplicate_ids)
+            findings = validate_request(imported, duplicate_ids, known_asset_tags, known_serial_numbers)
             st.session_state["request_data"] = imported
             populate_form_state(imported)
             st.session_state["findings"] = findings
@@ -129,7 +132,7 @@ if submitted:
     # Keep the shipped sample identifier reserved, including when it is being entered manually.
     if any(r.get("employee_id", "").casefold() == request["employee_id"].casefold() for r in sample_records):
         existing.add(request["employee_id"])
-    findings = validate_request(request, existing)
+    findings = validate_request(request, existing, known_asset_tags, known_serial_numbers)
     st.session_state["request_data"] = request
     st.session_state["findings"] = findings
     st.session_state["generated"] = not any(f["severity"] == "error" for f in findings)

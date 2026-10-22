@@ -29,19 +29,19 @@ Do not include actual account creation or device setup; OnboardOps does not perf
 ### Actual core-pipeline timing observed in this environment
 
 - Run date: 2026-10-22
-- Python: 3.13.5; Linux execution container; host hardware details not captured
-- Method: `time.perf_counter()`, 100 repetitions per case; each iteration validates, generates the checklist, and renders Markdown and CSV in memory
-- This was rerun after the role-rule and validation improvements. Timings are processing latency, not end-to-end technician time. They cannot be compared directly to a manual baseline.
+- Python: 3.13.5; platform: Linux-6.18.55-x86_64-with-glibc2.41
+- Method: `time.perf_counter()`, 100 repetitions per case; each iteration validates, generates the checklist, and renders Markdown and CSV in memory.
+- These figures are machine- and load-dependent processing latency, not end-to-end technician time.
 
 | Case | Median (ms) | Min (ms) | Max (ms) |
 |---|---:|---:|---:|
-| VALID-WINDOWS-01 | 0.041 | 0.039 | 0.391 |
-| VALID-MACOS-01 | 0.037 | 0.036 | 0.060 |
-| INVALID-INCOMPLETE-01 | 0.023 | 0.022 | 0.043 |
+| VALID-WINDOWS-01 | 0.047 | 0.043 | 0.694 |
+| VALID-MACOS-01 | 0.042 | 0.040 | 0.645 |
+| INVALID-INCOMPLETE-01 | 0.026 | 0.025 | 0.115 |
 
 ### Manual-versus-automated end-to-end results
 
-**Not measured. No time-saving figure can be calculated yet.** The UI dependency could not be installed in this network-restricted environment, and a genuine human manual baseline cannot be measured from the core-processing benchmark. Fill this table after running the app locally using the method above.
+**Not measured. No time-saving figure can be calculated yet.** The Streamlit UI could not be launched in this environment because Streamlit is not installed, and a genuine human manual baseline cannot be measured from the core-processing benchmark. Fill this table after running the app locally using the method above.
 
 | Date / environment | Case | Manual time (s) | OnboardOps end-to-end time incl. review (s) | Manual omissions | OnboardOps omissions | Notes |
 |---|---|---:|---:|---|---|---|

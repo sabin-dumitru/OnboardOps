@@ -154,5 +154,30 @@ class OnboardOpsTests(unittest.TestCase):
         self.assertIn("DEMO-BAD-2103", inventory)
 
 
+    def test_duplicate_asset_tag_and_serial_are_blocking_findings(self):
+        request = {k: v for k, v in self.windows.items() if k != "case_id"}
+        findings = validate_request(
+            request,
+            existing_asset_tags={request["asset_tag"].casefold()},
+            existing_serial_numbers={request["serial_number"].casefold()},
+        )
+        errors = [f for f in findings if f["severity"] == "error"]
+        self.assertTrue(any(f["field"] == "Asset tag" and "already assigned" in f["message"] for f in errors))
+        self.assertTrue(any(f["field"] == "Serial number" and "already assigned" in f["message"] for f in errors))
+
+    def test_asset_reference_without_laptop_is_flagged(self):
+        request = {k: v for k, v in self.windows.items() if k != "case_id"}
+        request["laptop_required"] = False
+        findings = validate_request(request)
+        self.assertTrue(any(f["field"] == "Laptop equipment" and f["severity"] == "warning" for f in findings))
+
+    def test_unsupported_and_duplicate_accessories_are_flagged(self):
+        request = {k: v for k, v in self.windows.items() if k != "case_id"}
+        request["accessories"] = ["monitor", "monitor", "gaming-chair"]
+        findings = validate_request(request)
+        self.assertTrue(any(f["field"] == "Accessories" and f["severity"] == "error" and "gaming-chair" in f["message"] for f in findings))
+        self.assertTrue(any(f["field"] == "Accessories" and f["severity"] == "warning" and "Duplicate" in f["message"] for f in findings))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
