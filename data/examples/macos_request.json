@@ -1,0 +1,15 @@
+{
+  "employee_id": "DEMO-JSON-2202",
+  "employee_name": "Avery Sample",
+  "start_date": "2027-03-02",
+  "team": "Creative Operations",
+  "location": "Amsterdam",
+  "operating_system": "macOS",
+  "laptop_required": true,
+  "accessories": ["monitor", "headset", "dock"],
+  "applications": ["Office suite", "Figma", "Slack"],
+  "access_requests": ["Approved design workspace request DEMO-APP-2202"],
+  "asset_tag": "CF-DEMO-2202",
+  "serial_number": "SYNTHETIC-2202",
+  "ticket_reference": "DEMO-TICKET-2202"
+}

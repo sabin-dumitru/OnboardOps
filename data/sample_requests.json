@@ -1,0 +1,17 @@
+[
+  {
+    "employee_id": "DEMO-1042",
+    "employee_name": "Alex Example",
+    "start_date": "2026-11-02",
+    "team": "Design Operations",
+    "location": "Amsterdam",
+    "operating_system": "macOS",
+    "laptop_required": true,
+    "accessories": ["monitor", "keyboard", "mouse", "dock", "headset"],
+    "applications": ["Office suite", "Figma", "Slack"],
+    "access_requests": ["Design workspace (approval reference required)"],
+    "asset_tag": "CF-DEMO-0081",
+    "serial_number": "SYNTHETIC-SERIAL-0081",
+    "ticket_reference": "DEMO-TICKET-204"
+  }
+]

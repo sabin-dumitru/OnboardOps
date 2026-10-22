@@ -1,0 +1,50 @@
+[
+  {
+    "case_id": "VALID-WINDOWS-01",
+    "employee_id": "DEMO-WIN-2101",
+    "employee_name": "Jordan Sample",
+    "start_date": "2027-02-15",
+    "team": "Customer Operations",
+    "location": "Amsterdam",
+    "operating_system": "Windows",
+    "laptop_required": true,
+    "accessories": ["monitor", "keyboard", "mouse", "dock"],
+    "applications": ["Office suite", "Browser", "Teams"],
+    "access_requests": ["Approved CRM group request DEMO-APP-101"],
+    "asset_tag": "CF-DEMO-2101",
+    "serial_number": "SYNTHETIC-WIN-2101",
+    "ticket_reference": "DEMO-TICKET-2101"
+  },
+  {
+    "case_id": "VALID-MACOS-01",
+    "employee_id": "DEMO-MAC-2102",
+    "employee_name": "Morgan Sample",
+    "start_date": "2027-02-16",
+    "team": "Creative Operations",
+    "location": "Amsterdam",
+    "operating_system": "macOS",
+    "laptop_required": true,
+    "accessories": ["monitor", "headset", "dock"],
+    "applications": ["Office suite", "Figma", "Slack"],
+    "access_requests": ["Approved design workspace request DEMO-APP-102"],
+    "asset_tag": "CF-DEMO-2102",
+    "serial_number": "SYNTHETIC-MAC-2102",
+    "ticket_reference": "DEMO-TICKET-2102"
+  },
+  {
+    "case_id": "INVALID-INCOMPLETE-01",
+    "employee_id": "DEMO-BAD-2103",
+    "employee_name": "Casey Sample",
+    "start_date": "16/02/2027",
+    "team": "Content",
+    "location": "Amsterdam",
+    "operating_system": "Linux",
+    "laptop_required": true,
+    "accessories": ["monitor"],
+    "applications": [],
+    "access_requests": [],
+    "asset_tag": "",
+    "serial_number": "",
+    "ticket_reference": "DEMO-TICKET-2103"
+  }
+]
