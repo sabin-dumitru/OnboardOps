@@ -1,0 +1,212 @@
+{
+  "standard_tasks": [
+    {
+      "id": "request-confirmation",
+      "title": "Confirm onboarding request and start date",
+      "category": "Request validation",
+      "required": true
+    },
+    {
+      "id": "identity-record",
+      "title": "Verify identity details and account creation with the approved source of truth",
+      "category": "Identity and access",
+      "required": true
+    },
+    {
+      "id": "access-review",
+      "title": "Verify each access request against explicit approval; do not infer access from job title",
+      "category": "Identity and access",
+      "required": true
+    },
+    {
+      "id": "licence-review",
+      "title": "Verify requested licences, availability, and approval before assignment",
+      "category": "Applications and licences",
+      "required": true
+    },
+    {
+      "id": "device-enrolment",
+      "title": "Complete the organisation's approved device-enrolment process",
+      "category": "Device preparation",
+      "required": true
+    },
+    {
+      "id": "encryption",
+      "title": "Verify disk encryption meets the applicable endpoint policy",
+      "category": "Security",
+      "required": true
+    },
+    {
+      "id": "endpoint-security",
+      "title": "Verify endpoint protection and required security policies are active",
+      "category": "Security",
+      "required": true
+    },
+    {
+      "id": "mfa",
+      "title": "Confirm MFA and account-security setup using the approved process",
+      "category": "Security",
+      "required": true
+    },
+    {
+      "id": "asset-record",
+      "title": "Record asset tag, serial number, assigned equipment, and accessories in inventory",
+      "category": "Inventory",
+      "required": true
+    },
+    {
+      "id": "functional-test",
+      "title": "Test sign-in, connectivity, and requested applications with the user or approved test account",
+      "category": "Validation and handover",
+      "required": true
+    },
+    {
+      "id": "outstanding-actions",
+      "title": "Document blockers, owners, and outstanding actions in the service ticket",
+      "category": "Documentation",
+      "required": true
+    },
+    {
+      "id": "handover",
+      "title": "Complete handover and confirm readiness with the employee or request owner",
+      "category": "Validation and handover",
+      "required": true
+    }
+  ],
+  "os_tasks": {
+    "Windows": [
+      {
+        "id": "windows-updates",
+        "title": "Install approved Windows updates and verify update status",
+        "category": "Device preparation",
+        "required": true
+      },
+      {
+        "id": "windows-management",
+        "title": "Verify Windows management/enrolment status using the local standard",
+        "category": "Device preparation",
+        "required": true
+      },
+      {
+        "id": "windows-bitlocker",
+        "title": "Verify BitLocker or the organisation-approved Windows disk-encryption control",
+        "category": "Security",
+        "required": true
+      }
+    ],
+    "macOS": [
+      {
+        "id": "macos-updates",
+        "title": "Install approved macOS updates and verify update status",
+        "category": "Device preparation",
+        "required": true
+      },
+      {
+        "id": "macos-management",
+        "title": "Verify MDM enrolment and required configuration profiles using the local standard",
+        "category": "Device preparation",
+        "required": true
+      },
+      {
+        "id": "macos-filevault",
+        "title": "Verify FileVault or the organisation-approved macOS disk-encryption control",
+        "category": "Security",
+        "required": true
+      }
+    ]
+  },
+  "equipment_tasks": {
+    "laptop": {
+      "id": "laptop-allocation",
+      "title": "Prepare and allocate the requested laptop",
+      "category": "Hardware allocation",
+      "required": true
+    },
+    "monitor": {
+      "id": "monitor-allocation",
+      "title": "Allocate and record monitor(s)",
+      "category": "Hardware allocation",
+      "required": true
+    },
+    "keyboard": {
+      "id": "keyboard-allocation",
+      "title": "Allocate and record keyboard",
+      "category": "Hardware allocation",
+      "required": true
+    },
+    "mouse": {
+      "id": "mouse-allocation",
+      "title": "Allocate and record mouse",
+      "category": "Hardware allocation",
+      "required": true
+    },
+    "headset": {
+      "id": "headset-allocation",
+      "title": "Allocate and record headset",
+      "category": "Hardware allocation",
+      "required": true
+    },
+    "dock": {
+      "id": "dock-allocation",
+      "title": "Allocate and record docking station or adapter",
+      "category": "Hardware allocation",
+      "required": true
+    }
+  },
+  "defaults": {
+    "accessories": [
+      "monitor",
+      "keyboard",
+      "mouse"
+    ],
+    "applications": [
+      "Office suite",
+      "Browser"
+    ]
+  },
+  "role_rules": [
+    {
+      "keywords": [
+        "design",
+        "creative"
+      ],
+      "tasks": [
+        {
+          "id": "role-design-review",
+          "title": "Confirm requested creative tools and display/peripheral needs match the approved request; do not infer licences",
+          "category": "Role-specific review",
+          "required": true
+        }
+      ]
+    },
+    {
+      "keywords": [
+        "content",
+        "editorial"
+      ],
+      "tasks": [
+        {
+          "id": "role-content-review",
+          "title": "Confirm requested content-publishing tools and workflow access are explicitly listed and approved",
+          "category": "Role-specific review",
+          "required": true
+        }
+      ]
+    },
+    {
+      "keywords": [
+        "support",
+        "customer operations",
+        "customer service"
+      ],
+      "tasks": [
+        {
+          "id": "role-support-review",
+          "title": "Confirm requested support tools and queue access are explicitly listed and approved",
+          "category": "Role-specific review",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

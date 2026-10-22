@@ -1,0 +1,15 @@
+{
+  "employee_id": "DEMO-BAD-2203",
+  "employee_name": "Sam Sample",
+  "start_date": "03/03/2027",
+  "team": "Content",
+  "location": "Amsterdam",
+  "operating_system": "Linux",
+  "laptop_required": true,
+  "accessories": ["monitor"],
+  "applications": [],
+  "access_requests": [],
+  "asset_tag": "",
+  "serial_number": "",
+  "ticket_reference": "DEMO-TICKET-2203"
+}

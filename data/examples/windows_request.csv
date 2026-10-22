@@ -1,0 +1,2 @@
+employee_id,employee_name,start_date,team,location,operating_system,laptop_required,accessories,applications,access_requests,asset_tag,serial_number,ticket_reference
+DEMO-CSV-2201,Robin Sample,2027-03-01,Customer Operations,Amsterdam,Windows,true,"monitor;keyboard;mouse;dock","Office suite;Browser","Approved group request DEMO-APP-2201",CF-DEMO-2201,SYNTHETIC-2201,DEMO-TICKET-2201
