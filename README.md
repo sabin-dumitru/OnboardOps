@@ -17,7 +17,41 @@ OnboardOps standardises onboarding preparation for Windows and macOS. The Stream
 - Cybersecurity: HTTPS-by-default API client, redirects disabled, bounded timeouts, least-privilege guidance, dry-run writes, sanitised errors and secret-redacting audit metadata.
 - Integration design: JSON REST payloads aligned to provider APIs where the schema is stable, plus configurable Workday paths where schemas vary by tenant.
 
-## Quick start on Windows
+## Quick start (Windows, macOS or Linux)
+
+### Option A — Docker (recommended for a quick demo)
+
+Install Docker Desktop or Docker Engine, then run:
+
+```sh
+docker compose up --build
+```
+
+Open [http://localhost:8501](http://localhost:8501). The app is bound to your own computer only. Synthetic case data persists in the local `data/` folder. See [Docker demo guide](docs/DOCKER_DEMO.md).
+
+### Option B — Python virtual environment
+
+**Windows PowerShell**
+
+```powershell
+py -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+```
+
+**macOS / Linux**
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+```
+
+## Legacy quick start on Windows
+
+
 
 ```powershell
 py -m venv .venv
