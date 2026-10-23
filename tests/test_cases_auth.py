@@ -52,7 +52,7 @@ class CaseStoreTests(unittest.TestCase):
         self.store.create_case(case_id="CASE-102",lifecycle="onboarding",requester_id="alice",summary="Demo")
         with self.assertRaises(WorkflowError): self.store.transition(case_id="CASE-102",target="completed",actor_id="alice")
         self.store.transition(case_id="CASE-102",target="pending_approval",actor_id="alice",expected_version=1)
-        with self.assertRaises(CaseStoreError): self.store.transition(case_id="CASE-102",target="approved",actor_id="bob",expected_version=1)
+        with self.assertRaises(WorkflowError): self.store.transition(case_id="CASE-102",target="approved",actor_id="bob",expected_version=1)
     def test_case_approval_requires_a_different_actor_and_cannot_be_bypassed(self):
         self.store.create_case(case_id="CASE-104",lifecycle="onboarding",requester_id="alice",summary="Demo")
         self.store.transition(case_id="CASE-104",target="pending_approval",actor_id="alice",expected_version=1)
