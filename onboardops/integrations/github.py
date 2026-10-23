@@ -1,17 +1,18 @@
 """GitHub REST adapter for approved onboarding follow-up issue creation."""
 from __future__ import annotations
 import re
+import requests
 from .base import IntegrationError, JsonApiClient, require_approval
 
 
 class GitHubClient:
     def __init__(self, token: str, *, api_base_url: str = "https://api.github.com",
-                 timeout_seconds: float = 10.0) -> None:
+                 timeout_seconds: float = 10.0, session: requests.Session | None = None) -> None:
         if not token:
             raise ValueError("GitHub token is required.")
         self.api = JsonApiClient(api_base_url, token=token, headers={
             "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"},
-            timeout_seconds=timeout_seconds)
+            timeout_seconds=timeout_seconds, session=session)
 
     def create_issue(self, *, repository: str, title: str, body: str,
                      dry_run: bool = True, approval=None) -> dict:

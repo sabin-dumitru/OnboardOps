@@ -1,0 +1,101 @@
+"""Persistent local case management with fail-closed role checks."""
+from __future__ import annotations
+import json
+import os
+import sys
+from pathlib import Path
+import streamlit as st
+
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+from onboardops.auth import AuthorizationError, require_permission, resolve_actor
+from onboardops.cases import CaseStore, CaseStoreError
+from onboardops.workflow import TRANSITIONS, WorkflowError
+
+st.set_page_config(page_title="OnboardOps · Cases",page_icon="🗂️",layout="wide")
+st.title("🗂️ Case management")
+st.caption("Persistent local case records · Role-aware actions · No provider writes")
+headers={}
+try:
+    headers=dict(st.context.headers)
+except Exception:
+    pass
+try:
+    actor=resolve_actor(headers)
+except AuthorizationError as exc:
+    st.error(f"Access denied: {exc}")
+    st.stop()
+
+db_path=os.environ.get("ONBOARDOPS_CASE_DB",str(ROOT/"data"/"onboardops_cases.sqlite3"))
+store=CaseStore(db_path)
+st.info("Local demo stores synthetic cases in SQLite on this machine. Single-user demo only. Provider writes are disabled.")
+st.caption(f"Identity: {actor.subject} · Mode: {actor.mode} · Roles: {', '.join(sorted(actor.roles))}")
+
+def show_error(exc):
+    if isinstance(exc,(AuthorizationError,CaseStoreError,WorkflowError,ValueError)):
+        st.error(str(exc))
+    else:
+        st.error("Operation failed; sensitive details were withheld.")
+
+try:
+    require_permission(actor,"cases:read")
+    cases=store.list_cases()
+except Exception as exc:
+    show_error(exc)
+    cases=[]
+
+tab_list,tab_create=st.tabs(["Saved cases and history","Create synthetic case"])
+with tab_list:
+    st.subheader("Saved cases")
+    if cases:
+        st.dataframe([{"Case ID":c["case_id"],"Lifecycle":c["lifecycle"],"Status":c["status"],
+                       "Summary":c["summary"],"Requester":c["requester_id"],"Updated":c["updated_at"],
+                       "Version":c["version"]} for c in cases],use_container_width=True,hide_index=True)
+        selected=st.selectbox("Open case",[c["case_id"] for c in cases])
+        case=store.get_case(selected)
+        left,right=st.columns(2)
+        with left:
+            st.write("**Synthetic request data**")
+            st.json(case["request_data"],expanded=False)
+        with right:
+            targets=sorted(TRANSITIONS.get(case["status"],set()))
+            if targets:
+                target=st.selectbox("Move to status",targets,key=f"status_{selected}")
+                if st.button("Save status change"):
+                    try:
+                        require_permission(actor,"cases:transition")
+                        store.transition(case_id=selected,target=target,actor_id=actor.subject,expected_version=case["version"])
+                        st.success("Status saved.")
+                        st.rerun()
+                    except Exception as exc:
+                        show_error(exc)
+            else:
+                st.caption("This case is in a terminal state.")
+        st.write("**Case history**")
+        st.dataframe([{"Event":e["event_type"],"Actor":e["actor_id"],"From":e["from_status"] or "—",
+                       "To":e["to_status"] or "—","At":e["occurred_at"]} for e in store.list_events(selected)],
+                     use_container_width=True,hide_index=True)
+    else:
+        st.info("No saved cases yet. Create one in the next tab.")
+
+with tab_create:
+    st.subheader("Create a local synthetic case")
+    with st.form("create_case",clear_on_submit=False):
+        case_id=st.text_input("Case ID",value="CASE-DEMO-1001")
+        lifecycle=st.selectbox("Lifecycle",["onboarding","offboarding","transfer","change"])
+        summary=st.text_input("Summary",value="Prepare synthetic employee onboarding")
+        payload_text=st.text_area("Optional synthetic request JSON",value='{"employee_id":"DEMO-1001","operating_system":"Windows"}')
+        submitted=st.form_submit_button("Save case")
+    if submitted:
+        try:
+            require_permission(actor,"cases:create")
+            payload=json.loads(payload_text or "{}")
+            if not isinstance(payload,dict):
+                raise ValueError("Request payload must be a JSON object.")
+            saved=store.create_case(case_id=case_id,lifecycle=lifecycle,requester_id=actor.subject,
+                                    summary=summary,request_data=payload)
+            st.success(f"Saved {saved['case_id']} as a draft.")
+            st.rerun()
+        except Exception as exc:
+            show_error(exc)
+store.close()
