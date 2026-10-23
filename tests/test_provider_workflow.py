@@ -8,6 +8,7 @@ from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.provider_workflow import approve_github_issue, create_github_followup
 from onboardops.workflow import ActionLedger, DuplicateActionError, WorkflowError
 from onboardops.integrations.github import GitHubClient
+from onboardops.integrations.base import IntegrationError
 
 class GitHubWorkflowTests(unittest.TestCase):
     def setUp(self):
@@ -77,7 +78,7 @@ class GitHubWorkflowTests(unittest.TestCase):
     def test_timeout_consumes_approval_and_marks_outcome_unknown(self):
         approval=self._approval()
         self.session.request.side_effect=requests.Timeout("synthetic timeout")
-        with self.assertRaises(Exception) as caught:
+        with self.assertRaises(IntegrationError) as caught:
             create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=self.requester,
                 client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
                 title="Follow up CASE-201",body="Synthetic test")
