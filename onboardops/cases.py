@@ -230,6 +230,34 @@ class CaseStore:
         result["payload"] = json.loads(result.pop("payload_json"))
         return result
 
+
+    def consume_provider_approval(self, approval_id: int, *, expected_fingerprint: str) -> dict[str, Any]:
+        """Atomically consume a persisted approval once; callers must reconcile ambiguous outcomes."""
+        now = _now()
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            row = self.connection.execute("SELECT * FROM provider_approvals WHERE approval_id=?", (approval_id,)).fetchone()
+            if row is None:
+                raise CaseStoreError("Provider approval not found.")
+            if row["status"] != "approved":
+                raise CaseStoreError("Provider approval is no longer available for use.")
+            if row["fingerprint"] != expected_fingerprint:
+                raise CaseStoreError("Provider approval does not match the requested payload.")
+            cur = self.connection.execute(
+                "UPDATE provider_approvals SET status='consumed' WHERE approval_id=? AND status='approved' AND fingerprint=?",
+                (approval_id, expected_fingerprint))
+            if cur.rowcount != 1:
+                raise CaseStoreError("Provider approval was already consumed; reconcile before retrying.")
+            self.connection.execute(
+                "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
+                (row["case_id"], "provider_action.approval_consumed", row["approver_id"], None, None,
+                 json.dumps({"approval_id": approval_id, "provider": row["provider"], "operation": row["operation"]}, sort_keys=True), now))
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        return self.get_provider_approval(approval_id)
+
     def list_events(self, case_id: str) -> list[dict[str, Any]]:
         if not self.connection.execute("SELECT 1 FROM cases WHERE case_id=?", (case_id,)).fetchone():
             raise CaseStoreError("Case not found.")
