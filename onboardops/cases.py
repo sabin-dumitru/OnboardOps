@@ -196,8 +196,11 @@ class CaseStore:
         now = _now()
         try:
             self.connection.execute("BEGIN IMMEDIATE")
-            if not self.connection.execute("SELECT 1 FROM cases WHERE case_id=?", (case_id,)).fetchone():
+            case_row = self.connection.execute("SELECT requester_id FROM cases WHERE case_id=?", (case_id,)).fetchone()
+            if case_row is None:
                 raise CaseStoreError("Case not found.")
+            if case_row["requester_id"].casefold() != requester_id.casefold():
+                raise WorkflowError("Provider approval requester must match the case requester.")
             self.connection.execute("""
                 CREATE TABLE IF NOT EXISTS provider_approvals (
                   approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
