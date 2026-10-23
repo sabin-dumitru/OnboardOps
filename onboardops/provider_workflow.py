@@ -26,6 +26,8 @@ def create_github_followup(*, actor: Actor, approver_id: str, approval: Approval
     require_permission(actor, "provider:write", production_only=True)
     if actor.subject.casefold() == approver_id.casefold():
         raise WorkflowError("Requester and approver must be different identities.")
+    if approval.requester_id.casefold() != actor.subject.casefold() or approval.approver_id.casefold() != approver_id.casefold():
+        raise WorkflowError("Approval identities do not match the requesting actor and approver.")
     payload = github_issue_payload(repository, title, body)
     from onboardops.workflow import verify_approval
     verify_approval(approval, provider="github", operation="create_issue", payload=payload)
