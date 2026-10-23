@@ -1,0 +1,16 @@
+services:
+  onboardops:
+    build: .
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      ONBOARDOPS_AUTH_MODE: demo
+      ONBOARDOPS_CASE_DB: /app/state/onboardops_cases.sqlite3
+    volumes:
+      - onboardops-state:/app/state
+      - onboardops-outputs:/app/outputs
+    restart: unless-stopped
+
+volumes:
+  onboardops-state:
+  onboardops-outputs:

@@ -43,6 +43,14 @@ class CaseStore:
         );
         CREATE INDEX IF NOT EXISTS idx_cases_updated_at ON cases(updated_at DESC);
         CREATE INDEX IF NOT EXISTS idx_case_events_case ON case_events(case_id, event_id);
+        CREATE TABLE IF NOT EXISTS provider_approvals (
+          approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          case_id TEXT NOT NULL REFERENCES cases(case_id),
+          requester_id TEXT NOT NULL, approver_id TEXT NOT NULL,
+          provider TEXT NOT NULL, operation TEXT NOT NULL,
+          payload_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
+          approved_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
+        );
         """)
         self.connection.commit()
 
@@ -107,6 +115,8 @@ class CaseStore:
         return [self.get_case(row["case_id"]) for row in rows]
 
     def transition(self, *, case_id: str, target: str, actor_id: str, expected_version: int | None = None) -> dict[str, Any]:
+        if target == "approved":
+            raise WorkflowError("Use the separate-actor approval method to approve a case.")
         actor_id = actor_id.strip()
         if not actor_id:
             raise CaseStoreError("Actor identity is required.")
@@ -136,6 +146,120 @@ class CaseStore:
             self.connection.rollback()
             raise
         return self.get_case(case_id)
+
+
+    def approve_case(self, *, case_id: str, approver_id: str, expected_version: int | None = None) -> dict[str, Any]:
+        """Approve a pending case only when the approver differs from its requester."""
+        approver_id = approver_id.strip()
+        if not approver_id:
+            raise CaseStoreError("Approver identity is required.")
+        now = _now()
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            row = self.connection.execute(
+                "SELECT status, requester_id, version FROM cases WHERE case_id=?", (case_id,)).fetchone()
+            if row is None:
+                raise CaseStoreError("Case not found.")
+            if row["requester_id"].casefold() == approver_id.casefold():
+                raise WorkflowError("The requester cannot approve their own case.")
+            if row["status"] != "pending_approval":
+                raise WorkflowError("Only a case awaiting approval can be approved.")
+            if expected_version is not None and row["version"] != expected_version:
+                raise CaseStoreError("This case changed in another session. Reload it before trying again.")
+            version = row["version"]
+            updated = self.connection.execute(
+                "UPDATE cases SET status='approved',updated_at=?,version=version+1 WHERE case_id=? AND version=? AND status='pending_approval'",
+                (now, case_id, version))
+            if updated.rowcount != 1:
+                raise CaseStoreError("Concurrent case update detected; reload and retry.")
+            self.connection.execute(
+                "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
+                (case_id, "case.approved", approver_id, "pending_approval", "approved", "{}", now))
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        return self.get_case(case_id)
+
+    def record_provider_approval(self, *, case_id: str, requester_id: str, approver_id: str,
+                                 provider: str, operation: str, payload: dict[str, Any],
+                                 fingerprint: str) -> dict[str, Any]:
+        """Persist a content-bound approval record; callers must verify authenticated roles."""
+        requester_id, approver_id = requester_id.strip(), approver_id.strip()
+        if not requester_id or not approver_id:
+            raise CaseStoreError("Requester and approver identities are required.")
+        if requester_id.casefold() == approver_id.casefold():
+            raise WorkflowError("The requester cannot approve their own provider action.")
+        if not all(x.strip() for x in (provider, operation, fingerprint)):
+            raise CaseStoreError("Provider, operation and fingerprint are required.")
+        safe_payload = json.dumps(self._safe_json(payload), sort_keys=True, ensure_ascii=False)
+        now = _now()
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            case_row = self.connection.execute("SELECT requester_id FROM cases WHERE case_id=?", (case_id,)).fetchone()
+            if case_row is None:
+                raise CaseStoreError("Case not found.")
+            if case_row["requester_id"].casefold() != requester_id.casefold():
+                raise WorkflowError("Provider approval requester must match the case requester.")
+            self.connection.execute("""
+                CREATE TABLE IF NOT EXISTS provider_approvals (
+                  approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  case_id TEXT NOT NULL REFERENCES cases(case_id),
+                  requester_id TEXT NOT NULL, approver_id TEXT NOT NULL,
+                  provider TEXT NOT NULL, operation TEXT NOT NULL,
+                  payload_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                  approved_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
+                )
+            """)
+            cur = self.connection.execute(
+                "INSERT INTO provider_approvals(case_id,requester_id,approver_id,provider,operation,payload_json,fingerprint,approved_at,status) VALUES (?,?,?,?,?,?,?,?, 'approved')",
+                (case_id, requester_id, approver_id, provider, operation, safe_payload, fingerprint, now))
+            approval_id = cur.lastrowid
+            self.connection.execute(
+                "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
+                (case_id, "provider_action.approved", approver_id, None, None,
+                 json.dumps({"approval_id": approval_id, "provider": provider, "operation": operation, "fingerprint": fingerprint}, sort_keys=True), now))
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        return self.get_provider_approval(int(approval_id))
+
+    def get_provider_approval(self, approval_id: int) -> dict[str, Any]:
+        row = self.connection.execute("SELECT * FROM provider_approvals WHERE approval_id=?", (approval_id,)).fetchone()
+        if row is None:
+            raise CaseStoreError("Provider approval not found.")
+        result = dict(row)
+        result["payload"] = json.loads(result.pop("payload_json"))
+        return result
+
+
+    def consume_provider_approval(self, approval_id: int, *, expected_fingerprint: str) -> dict[str, Any]:
+        """Atomically consume a persisted approval once; callers must reconcile ambiguous outcomes."""
+        now = _now()
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            row = self.connection.execute("SELECT * FROM provider_approvals WHERE approval_id=?", (approval_id,)).fetchone()
+            if row is None:
+                raise CaseStoreError("Provider approval not found.")
+            if row["status"] != "approved":
+                raise CaseStoreError("Provider approval is no longer available for use.")
+            if row["fingerprint"] != expected_fingerprint:
+                raise CaseStoreError("Provider approval does not match the requested payload.")
+            cur = self.connection.execute(
+                "UPDATE provider_approvals SET status='consumed' WHERE approval_id=? AND status='approved' AND fingerprint=?",
+                (approval_id, expected_fingerprint))
+            if cur.rowcount != 1:
+                raise CaseStoreError("Provider approval was already consumed; reconcile before retrying.")
+            self.connection.execute(
+                "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
+                (row["case_id"], "provider_action.approval_consumed", row["approver_id"], None, None,
+                 json.dumps({"approval_id": approval_id, "provider": row["provider"], "operation": row["operation"]}, sort_keys=True), now))
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        return self.get_provider_approval(approval_id)
 
     def list_events(self, case_id: str) -> list[dict[str, Any]]:
         if not self.connection.execute("SELECT 1 FROM cases WHERE case_id=?", (case_id,)).fetchone():

@@ -58,7 +58,18 @@ with tab_list:
             st.write("**Synthetic request data**")
             st.json(case["request_data"],expanded=False)
         with right:
-            targets=sorted(TRANSITIONS.get(case["status"],set()))
+            targets=sorted(t for t in TRANSITIONS.get(case["status"],set()) if t != "approved")
+            if case["status"] == "pending_approval":
+                st.caption("Approval must come from a different identity than the requester.")
+                if st.button("Approve case", key=f"approve_{selected}"):
+                    try:
+                        require_permission(actor, "approvals:review")
+                        approved = store.approve_case(case_id=selected, approver_id=actor.subject,
+                                                      expected_version=case["version"])
+                        st.success(f"{approved['case_id']} approved.")
+                        st.rerun()
+                    except Exception as exc:
+                        show_error(exc)
             if targets:
                 target=st.selectbox("Move to status",targets,key=f"status_{selected}")
                 if st.button("Save status change"):
