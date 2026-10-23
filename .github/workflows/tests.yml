@@ -36,3 +36,11 @@ jobs:
         run: python scripts/demo.py
       - name: Exercise offline integration demo
         run: python scripts/integration_demo.py
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Build local demo container
+        run: docker build --tag onboardops-demo:ci .
