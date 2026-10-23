@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 from onboardops.auth import Actor, require_permission
 from onboardops.cases import CaseStore
-from onboardops.workflow import ActionLedger, WorkflowError, action_fingerprint
+from onboardops.workflow import ActionLedger, Approval, WorkflowError, action_fingerprint
 from onboardops.integrations.github import GitHubClient
 
 def github_issue_payload(repository: str, title: str, body: str) -> dict[str, Any]:
@@ -44,8 +44,9 @@ def create_github_followup(*, store: CaseStore, approval_id: int, actor: Actor,
     # Consume before network I/O. A crash or timeout requires reconciliation, not a blind retry.
     store.consume_provider_approval(approval_id, expected_fingerprint=fingerprint)
     try:
-        result = client.create_issue(repository=repository, title=title, body=body,
-                                     dry_run=False, approval=None)
+        result = client.create_issue(repository=repository, title=title, body=body, dry_run=False,
+                                     approval=Approval(record["requester_id"], record["approver_id"],
+                                                       record["fingerprint"], record["approved_at"]))
     except Exception:
         ledger.finish_action(key, status="unknown")
         raise
