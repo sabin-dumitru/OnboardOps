@@ -76,6 +76,12 @@ class CaseStoreTests(unittest.TestCase):
         self.assertEqual(restored["payload"]["api_token"],"[REDACTED]")
         self.assertEqual(restored["approver_id"],"bob")
 
+    def test_provider_approval_must_belong_to_case_requester(self):
+        self.store.create_case(case_id="CASE-106",lifecycle="onboarding",requester_id="alice",summary="Demo")
+        with self.assertRaises(WorkflowError):
+            self.store.record_provider_approval(case_id="CASE-106",requester_id="mallory",approver_id="bob",
+                provider="github",operation="create_issue",payload={"title":"Demo"},fingerprint="fp")
+
     def test_secret_values_are_redacted_from_stored_request(self):
         case=self.store.create_case(case_id="CASE-103",lifecycle="onboarding",requester_id="alice",summary="Demo",request_data={"api_token":"must-not-persist","team":"IT"})
         self.assertEqual(case["request_data"]["api_token"],"[REDACTED]")
