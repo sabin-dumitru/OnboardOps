@@ -13,8 +13,20 @@ from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.workflow import TRANSITIONS, WorkflowError
 
 st.set_page_config(page_title="OnboardOps · Cases",page_icon="🗂️",layout="wide")
-st.title("🗂️ Case management")
-st.caption("Persistent local case records · Role-aware actions · No provider writes")
+st.markdown("""
+<style>
+.block-container {max-width: 1280px; padding-top: 1.6rem; padding-bottom: 3rem;}
+.ops-eyebrow {color: #91a8c5; text-transform: uppercase; letter-spacing: .12em; font-size: .74rem; font-weight: 700;}
+.ops-title {font-size: 2rem; font-weight: 750; letter-spacing: -.04em; margin: .15rem 0 .25rem;}
+.ops-subtitle {color: #a9bad0; margin-bottom: 1rem;}
+[data-testid="stMetric"] {background: #111c2e; border: 1px solid #263852; border-radius: 12px; padding: .85rem;}
+div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
+</style>
+<div class="ops-eyebrow">WORKSPACE · CASES</div>
+<div class="ops-title">Case management</div>
+<div class="ops-subtitle">Track onboarding work, review approvals, and inspect a timestamped case history.</div>
+""", unsafe_allow_html=True)
+st.caption("Local synthetic records · Role-aware actions · Provider writes disabled")
 headers={}
 try:
     headers=dict(st.context.headers)
@@ -44,48 +56,70 @@ except Exception as exc:
     show_error(exc)
     cases=[]
 
+# Overview metrics provide a quick scan without replacing the detailed case table.
+metric_cols=st.columns(4)
+metric_cols[0].metric("Total cases",len(cases))
+metric_cols[1].metric("Awaiting approval",sum(c["status"]=="pending_approval" for c in cases))
+metric_cols[2].metric("In progress",sum(c["status"] in {"approved","in_progress"} for c in cases))
+metric_cols[3].metric("Completed",sum(c["status"]=="completed" for c in cases))
+
 tab_list,tab_create=st.tabs(["Saved cases and history","Create synthetic case"])
 with tab_list:
     st.subheader("Saved cases")
     if cases:
-        st.dataframe([{"Case ID":c["case_id"],"Lifecycle":c["lifecycle"],"Status":c["status"],
-                       "Summary":c["summary"],"Requester":c["requester_id"],"Updated":c["updated_at"],
-                       "Version":c["version"]} for c in cases],use_container_width=True,hide_index=True)
-        selected=st.selectbox("Open case",[c["case_id"] for c in cases])
-        case=store.get_case(selected)
-        left,right=st.columns(2)
-        with left:
-            st.write("**Synthetic request data**")
-            st.json(case["request_data"],expanded=False)
-        with right:
-            targets=sorted(t for t in TRANSITIONS.get(case["status"],set()) if t != "approved")
-            if case["status"] == "pending_approval":
-                st.caption("Approval must come from a different identity than the requester.")
-                if st.button("Approve case", key=f"approve_{selected}"):
-                    try:
-                        require_permission(actor, "approvals:review")
-                        approved = store.approve_case(case_id=selected, approver_id=actor.subject,
-                                                      expected_version=case["version"])
-                        st.success(f"{approved['case_id']} approved.")
-                        st.rerun()
-                    except Exception as exc:
-                        show_error(exc)
-            if targets:
-                target=st.selectbox("Move to status",targets,key=f"status_{selected}")
-                if st.button("Save status change"):
-                    try:
-                        require_permission(actor,"cases:transition")
-                        store.transition(case_id=selected,target=target,actor_id=actor.subject,expected_version=case["version"])
-                        st.success("Status saved.")
-                        st.rerun()
-                    except Exception as exc:
-                        show_error(exc)
-            else:
-                st.caption("This case is in a terminal state.")
-        st.write("**Case history**")
-        st.dataframe([{"Event":e["event_type"],"Actor":e["actor_id"],"From":e["from_status"] or "—",
-                       "To":e["to_status"] or "—","At":e["occurred_at"]} for e in store.list_events(selected)],
-                     use_container_width=True,hide_index=True)
+        filter_col,search_col=st.columns([1,2])
+        with filter_col:
+            status_options=["All statuses"]+sorted({str(c["status"]) for c in cases})
+            status_filter=st.selectbox("Filter by status",status_options)
+        with search_col:
+            search_term=st.text_input("Search cases",placeholder="Case ID or summary")
+        visible_cases=[c for c in cases
+                       if (status_filter=="All statuses" or c["status"]==status_filter)
+                       and search_term.casefold() in (str(c["case_id"])+" "+str(c["summary"])).casefold()]
+        st.caption(f"Showing {len(visible_cases)} of {len(cases)} case(s).")
+        if visible_cases:
+            st.dataframe([{"Case ID":c["case_id"],"Lifecycle":c["lifecycle"],"Status":c["status"],
+                           "Summary":c["summary"],"Updated":c["updated_at"],"Version":c["version"]}
+                          for c in visible_cases],use_container_width=True,hide_index=True)
+            selected=st.selectbox("Open case",[c["case_id"] for c in visible_cases])
+            case=store.get_case(selected)
+        else:
+            st.info("No cases match these filters. Clear the search or choose another status.")
+            case=None
+        if case is not None:
+            left,right=st.columns(2)
+            with left:
+                st.write("**Synthetic request data**")
+                st.json(case["request_data"],expanded=False)
+            with right:
+                targets=sorted(t for t in TRANSITIONS.get(case["status"],set()) if t != "approved")
+                if case["status"] == "pending_approval":
+                    st.caption("Approval must come from a different identity than the requester.")
+                    if st.button("Approve case", key=f"approve_{selected}"):
+                        try:
+                            require_permission(actor, "approvals:review")
+                            approved = store.approve_case(case_id=selected, approver_id=actor.subject,
+                                                          expected_version=case["version"])
+                            st.success(f"{approved['case_id']} approved.")
+                            st.rerun()
+                        except Exception as exc:
+                            show_error(exc)
+                if targets:
+                    target=st.selectbox("Move to status",targets,key=f"status_{selected}")
+                    if st.button("Save status change"):
+                        try:
+                            require_permission(actor,"cases:transition")
+                            store.transition(case_id=selected,target=target,actor_id=actor.subject,expected_version=case["version"])
+                            st.success("Status saved.")
+                            st.rerun()
+                        except Exception as exc:
+                            show_error(exc)
+                else:
+                    st.caption("This case is in a terminal state.")
+            st.write("**Case history**")
+            st.dataframe([{"Event":e["event_type"],"Actor":e["actor_id"],"From":e["from_status"] or "—",
+                           "To":e["to_status"] or "—","At":e["occurred_at"]} for e in store.list_events(selected)],
+                         use_container_width=True,hide_index=True)
     else:
         st.info("No saved cases yet. Create one in the next tab.")
 

@@ -13,13 +13,16 @@ from onboardops.core import generate_checklist, load_templates, parse_request_fi
 st.set_page_config(page_title="OnboardOps · IT onboarding", page_icon="🧭", layout="wide")
 st.markdown("""
 <style>
-.block-container {max-width: 1180px; padding-top: 2rem; padding-bottom: 3rem;}
-.hero {padding: 1.4rem 1.6rem; border: 1px solid #dce3eb; border-radius: 16px; background: linear-gradient(120deg, #f7faff, #ffffff); margin-bottom: 1rem;}
-.hero h1 {margin: 0; color: #172b4d; letter-spacing: -0.04em;}
-.hero p {color: #52627a; margin: .4rem 0 0;}
-.small-note {font-size: .88rem; color: #637083;}
-[data-testid="stMetric"] {background: #f7f9fc; color: #172b4d; padding: .8rem; border-radius: 12px; border: 1px solid #e3e8ef;}
-[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] *, [data-testid="stMetricValue"], [data-testid="stMetricValue"] *, [data-testid="stMetricDelta"], [data-testid="stMetricDelta"] * {color: #172b4d !important; opacity: 1 !important;}
+:root { color-scheme: dark; }
+.block-container {max-width: 1280px; padding-top: 1.8rem; padding-bottom: 3rem;}
+.hero {padding: 1.5rem 1.7rem; border: 1px solid #263852; border-radius: 16px; background: linear-gradient(125deg, #14243a 0%, #0c1525 72%, #101d31 100%); margin-bottom: 1rem; box-shadow: 0 12px 30px rgba(0,0,0,.16);}
+.hero h1 {margin: 0; color: #f1f5fb; letter-spacing: -0.04em; font-size: 2.1rem;}
+.hero p {color: #b5c4d8; margin: .45rem 0 0;}
+.small-note {font-size: .88rem; color: #9eafc5;}
+[data-testid="stMetric"] {background: #111e30; color: #e7eef8; padding: .9rem; border-radius: 12px; border: 1px solid #263852;}
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] *, [data-testid="stMetricValue"], [data-testid="stMetricValue"] *, [data-testid="stMetricDelta"], [data-testid="stMetricDelta"] * {color: #e7eef8 !important; opacity: 1 !important;}
+[data-testid="stDataFrame"], [data-testid="stTable"] {border: 1px solid #263852; border-radius: 10px; overflow: hidden;}
+div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
 </style>
 <div class="hero"><h1>🧭 OnboardOps</h1><p>Turn a new-joiner request into a consistent technician checklist and equipment allocation record.</p></div>
 """, unsafe_allow_html=True)

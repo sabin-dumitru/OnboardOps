@@ -1,12 +1,14 @@
 import os
 import tempfile
 import unittest
+import requests
 from unittest.mock import Mock
 from onboardops.auth import Actor, AuthorizationError
 from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.provider_workflow import approve_github_issue, create_github_followup
 from onboardops.workflow import ActionLedger, DuplicateActionError, WorkflowError
 from onboardops.integrations.github import GitHubClient
+from onboardops.integrations.base import IntegrationError
 
 class GitHubWorkflowTests(unittest.TestCase):
     def setUp(self):
@@ -72,6 +74,51 @@ class GitHubWorkflowTests(unittest.TestCase):
                 client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
                 title="Follow up CASE-201",body="Synthetic test")
         self.assertEqual(self.session.request.call_count,1)
+
+    def test_timeout_consumes_approval_and_marks_outcome_unknown(self):
+        approval=self._approval()
+        self.session.request.side_effect=requests.Timeout("synthetic timeout")
+        with self.assertRaises(IntegrationError) as caught:
+            create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=self.requester,
+                client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
+                title="Follow up CASE-201",body="Synthetic test")
+        self.assertIn("timed out",str(caught.exception).lower())
+        action=self.ledger.connection.execute("SELECT status FROM actions").fetchone()
+        self.assertEqual(action["status"],"unknown")
+        self.assertEqual(self.store.get_provider_approval(approval["approval_id"])["status"],"consumed")
+        self.assertEqual(self.session.request.call_count,1)
+
+    def test_provider_server_error_marks_outcome_unknown_without_leaking_body(self):
+        approval=self._approval()
+        response=Mock(status_code=500,content=b"private upstream details")
+        response.json.return_value={"message":"private upstream details"}
+        self.session.request.return_value=response
+        with self.assertRaises(Exception) as caught:
+            create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=self.requester,
+                client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
+                title="Follow up CASE-201",body="Synthetic test")
+        self.assertNotIn("private upstream details",str(caught.exception))
+        action=self.ledger.connection.execute("SELECT status FROM actions").fetchone()
+        self.assertEqual(action["status"],"unknown")
+        self.assertEqual(self.store.get_provider_approval(approval["approval_id"])["status"],"consumed")
+        self.session.request.assert_called_once()
+
+    def test_approval_cannot_be_used_for_another_case(self):
+        approval=self._approval()
+        with self.assertRaises(WorkflowError):
+            create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=self.requester,
+                client=self.client,ledger=self.ledger,case_id="CASE-OTHER",repository="example/demo",
+                title="Follow up CASE-201",body="Synthetic test")
+        self.session.request.assert_not_called()
+
+    def test_approval_cannot_be_used_by_a_different_requester(self):
+        approval=self._approval()
+        other=Actor("other-operator@example.invalid",frozenset({"onboardops-operator"}),"trusted_proxy")
+        with self.assertRaises(WorkflowError):
+            create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=other,
+                client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
+                title="Follow up CASE-201",body="Synthetic test")
+        self.session.request.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()
