@@ -4,6 +4,8 @@
 
 This portfolio project was developed with AI assistance. The repository owner remains responsible for reviewing, testing, understanding and being able to explain the code.
 
+**Copyright and usage:** Copyright © 2026 Sabin Dumitru. All rights reserved. No permission is granted to use, copy, modify, or redistribute this code. The repository is public for viewing as a portfolio; public visibility does not mean the code is open source. This notice states the owner's intent but is not legal advice.
+
 OnboardOps standardises onboarding preparation for Windows and macOS. The Streamlit flow validates a synthetic request and generates a technician checklist plus a hardware allocation CSV. The integration foundation adds reusable Python adapters for Microsoft Graph / Intune, ServiceNow, Jira Cloud, Snipe-IT, Workday and GitHub.
 
 > **Honest scope:** provider adapters are implemented but have not been verified against live tenant environments. The Streamlit Integration Lab supports configured read-only lookups and offline write previews; live writes are not exposed in the UI until authentication and server-side RBAC are implemented. Writes default to dry-run. Do not use this project for production employee data or production changes.
