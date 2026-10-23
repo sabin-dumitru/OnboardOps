@@ -18,8 +18,19 @@ from onboardops.integrations import (  # noqa: E402
 )
 
 st.set_page_config(page_title="OnboardOps · Integration Lab", page_icon="🔌", layout="wide")
-st.title("🔌 Integration Lab")
-st.caption("Optional provider connections · Synthetic previews · Read-only live diagnostics")
+st.markdown("""
+<style>
+.block-container {max-width: 1280px; padding-top: 1.6rem; padding-bottom: 3rem;}
+[data-testid="stMetric"] {background: #111c2e; border: 1px solid #263852; border-radius: 12px; padding: .85rem;}
+div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
+.ops-eyebrow {color: #91a8c5; text-transform: uppercase; letter-spacing: .12em; font-size: .74rem; font-weight: 700;}
+.ops-title {font-size: 2rem; font-weight: 750; letter-spacing: -.04em; margin: .15rem 0 .25rem;}
+.ops-subtitle {color: #a9bad0; margin-bottom: 1.1rem;}
+</style>
+<div class="ops-eyebrow">PLATFORM · CONNECTIVITY</div>
+<div class="ops-title">Integration Lab</div>
+<div class="ops-subtitle">Provider readiness, read-only diagnostics, and safe action previews.</div>
+""", unsafe_allow_html=True)
 
 st.warning(
     "This page is intended for local development. It can perform configured read-only API lookups, "
