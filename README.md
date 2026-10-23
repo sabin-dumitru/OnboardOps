@@ -1,153 +1,76 @@
 # OnboardOps
 
-**A local-first Python and Streamlit tool that turns an onboarding request into a validated technician checklist and hardware allocation report.**
+**A local-first IT onboarding workflow prototype with optional provider adapters, approval-bound action previews, and offline tests.**
 
-OnboardOps is a personal portfolio project developed with AI assistance. It uses synthetic demonstration data only. It is not a production IT management system and has not been deployed or used by a real IT department.
+This portfolio project was developed with AI assistance. The repository owner remains responsible for reviewing, testing, understanding and being able to explain the code.
 
-## The problem
+**Copyright and usage:** Copyright © 2026 Sabin Dumitru. All rights reserved. No permission is granted to use, copy, modify, or redistribute this code. The repository is public for viewing as a portfolio; public visibility does not mean the code is open source. This notice states the owner's intent but is not legal advice.
 
-IT onboarding repeats a familiar set of administrative steps: confirm the request, prepare a device, verify approved software and access, record equipment, test the setup, and document handover. Repeating these steps manually can make omissions harder to spot.
+OnboardOps standardises onboarding preparation for Windows and macOS. The Streamlit flow validates a synthetic request and generates a technician checklist plus a hardware allocation CSV. The integration foundation adds reusable Python adapters for Microsoft Graph / Intune, ServiceNow, Jira Cloud, Snipe-IT, Workday and GitHub.
 
-OnboardOps standardises the *planning and documentation* part of that work. It does not perform the actual device setup or provision accounts.
+> **Honest scope:** provider adapters are implemented but have not been verified against live tenant environments. The Streamlit Integration Lab supports configured read-only lookups and offline write previews; live writes are not exposed in the UI until authentication and server-side RBAC are implemented. Writes default to dry-run. Do not use this project for production employee data or production changes.
 
-## What it does
+## What it demonstrates
 
-- Accepts one onboarding request from a JSON object, a single-row CSV, or the manual-entry form.
-- Validates required fields, date and operating-system formats, duplicate demo identifiers, duplicate asset/serial references against bundled synthetic records, accessory values, and common inconsistencies.
-- Generates a deterministic checklist tailored to Windows or macOS, selected equipment, requested applications, explicit access requests, and configurable role-review prompts.
-- Produces a Markdown checklist and CSV equipment allocation report. Equipment remains marked as needing allocation/verification.
-- Reports blocking errors separately from follow-up warnings. A draft can be inspected when errors exist, but the UI marks it as not ready for use.
-- Keeps generated exports in memory in the web UI. The console demo writes local files without overwriting existing artifacts.
-- Runs without external APIs, paid services, AI calls, production credentials, or integrations.
+- IT operations: consistent onboarding checklist and hardware handover outputs.
+- Software engineering: pure core logic, provider adapter boundaries, lifecycle transitions, approval fingerprints, action ledger and automated tests.
+- Cybersecurity: HTTPS-by-default API client, redirects disabled, bounded timeouts, least-privilege guidance, dry-run writes, sanitised errors and secret-redacting audit metadata.
+- Integration design: JSON REST payloads aligned to provider APIs where the schema is stable, plus configurable Workday paths where schemas vary by tenant.
 
-## Example scenarios
+## Quick start on Windows
 
-| Example | Expected result |
-|---|---|
-| `data/examples/windows_request.csv` | Windows updates, management and BitLocker prompts; selected accessories; per-application and access verification tasks |
-| `data/examples/macos_request.json` | macOS updates, MDM and FileVault prompts; different equipment and software tasks |
-| `data/examples/invalid_request.json` | Blocking findings for an invalid date and unsupported OS, plus warnings for missing asset details and absent software/access requests |
-
-CSV list fields (`accessories`, `applications`, `access_requests`) are separated with semicolons. JSON list fields use arrays.
-
-## Quick start
-
-Requirements: Python 3.10+ and pip.
-
-```bash
-python -m venv .venv
-
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows PowerShell (use this instead of the command above)
-.venv\Scripts\Activate.ps1
-
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-streamlit run app.py
+python -m streamlit run app.py
 ```
 
-Open the local URL Streamlit prints, normally `http://localhost:8501`.
+## Offline demo and tests
 
-### First demo
+No credentials or external service access are required:
 
-1. Select **Load sample request** or import `data/examples/windows_request.csv` from the sidebar.
-2. Review the validation status and the generated checklist.
-3. Open the **Hardware allocation** tab and download the CSV.
-4. Import `data/examples/macos_request.json` and compare the OS-specific tasks.
-5. Import `data/examples/invalid_request.json` to see actionable validation findings.
-6. Download the Markdown checklist and inspect its pre-flight findings and handover prompts.
-
-For a terminal walkthrough that prints the incoming request, findings, checklist excerpt, and local export paths:
-
-```bash
-python scripts/demo.py
-```
-
-The console demo uses exclusive file creation; repeated runs create a numbered filename instead of overwriting an existing output.
-
-## Tests and continuous integration
-
-Run the complete unit suite:
-
-```bash
+```powershell
 python -m unittest discover -s tests -v
 python -m compileall -q app.py onboardops tests scripts
 python scripts/demo.py
+python scripts/integration_demo.py
 ```
 
-The suite covers valid Windows and macOS requests, invalid/incomplete requests, duplicate identifiers and asset references, malformed JSON/CSV, invalid UTF-8, unsupported extensions, duplicate CSV headers, extra CSV values, boolean parsing, multiple software requests, role-specific review tasks, duplicate/unsupported accessories, formula-injection mitigation, export content, and no-overwrite file writing.
+The integration demo previews provider payloads, exercises a synthetic approval flow and verifies a local audit hash chain. It makes no HTTP requests. Tests use mocks and synthetic data; they do not prove live tenant permissions or live API compatibility.
 
-GitHub Actions runs the tests, compilation check, and console demonstration on pushes and pull requests. A green workflow confirms these automated checks pass; it does not replace manually launching and checking the Streamlit browser UI.
+## Optional integration adapters
 
-## How the automation works
+Launch the app and select **Integration Lab** in the Streamlit multipage navigation to check environment configuration, perform configured read-only lookups, and preview provider-shaped write payloads. See [Integration setup and limitations](docs/INTEGRATIONS.md) and [Architecture notes](docs/ARCHITECTURE.md).
 
-```text
-CSV / JSON / manual form
-          |
-          v
-   Parse and normalise
-          |
-          v
-  Validate request and
-  known synthetic records
-          |
-          v
-  Config-driven checklist
-  (OS + equipment + apps +
-   access + role review)
-          |
-          v
-  Markdown checklist + CSV
-  asset allocation report
-```
+| Provider | Implemented capability | Live writes default |
+|---|---|---|
+| Microsoft Graph / Entra | App-only user lookup | Not implemented |
+| Intune through Graph | Bounded managed-device lookup | Not implemented |
+| ServiceNow | Incident lookup and Table API create preview/write | Dry-run |
+| Jira Cloud | Issue lookup and REST v3 create preview/write | Dry-run |
+| Snipe-IT | Hardware search and checkout preview/write | Dry-run |
+| Workday | Configured worker GET and tenant-specific POST preview/write | Dry-run |
+| GitHub | Repository issue create preview/write | Dry-run |
 
-- `app.py` owns the Streamlit presentation and form state.
-- `onboardops/core.py` contains parsing, validation, deterministic generation, rendering, and safe local file writing.
-- `config/templates.json` contains standard tasks, Windows/macOS tasks, equipment prompts, defaults, and role-review rules.
-- `data/examples/` contains importable synthetic requests.
-- `tests/test_core.py` tests the business logic without needing Streamlit to run.
-- `scripts/demo.py` demonstrates the workflow; `scripts/benchmark_automation.py` measures core processing latency.
+Credentials are passed into adapter constructors by application code; they are not stored in the repository. The committed environment example is a list of variable names only and is not automatically loaded. Use a secret manager or local environment variables. Never commit real tokens.
 
-### Rules and safety choices
+## Important security and reliability boundaries
 
-- OS rules add relevant prompts: Windows includes Windows update/management/BitLocker checks; macOS includes macOS update/MDM/FileVault checks. These are prompts to follow the organisation's approved process, not assumptions about every environment.
-- Each requested application gets a licence/installation verification task; each requested access item gets an explicit approval-verification task. Job title never grants or implies access.
-- Role rules add review prompts only. They do not auto-select software or infer permissions.
-- Known asset tags and serial numbers are compared only against the bundled synthetic sample inventory. This is a demo safeguard, not a live inventory check.
-- CSV export escapes values beginning with common spreadsheet formula characters.
-- The app does not save submitted requests to a database or send them externally.
+- Payload-bound approval objects are not a team authorisation system. They do not replace authenticated identity or server-side role checks; do not expose live writes through an unauthenticated public UI.
+- The SQLite action ledger is local single-process scaffolding, not multi-user transactional storage.
+- A local hash-chained audit trail is tamper-evident for ordinary row edits, not tamper-proof against an administrator who can rewrite the database.
+- A POST timeout may occur after the provider committed the request. Do not blindly retry; reconcile with the provider first.
+- Workday paths, permissions and payload schemas vary by tenant/API version. Validate them against that tenant's API Explorer.
+- Intune's managed-device API requires an active Intune licence and appropriate consented permissions.
+- No live integration tests were run because no provider test tenants were available.
 
-## Benchmark and measured value
+## Roadmap
 
-The benchmark script uses `time.perf_counter()` for 100 repetitions per synthetic case. It measures validation, checklist generation, and in-memory Markdown/CSV rendering only.
+1. Integrate adapters into persistent lifecycle cases with server-side authentication and RBAC.
+2. Add PostgreSQL and versioned migrations for team use.
+3. Add a transactional action queue/outbox and provider-specific reconciliation.
+4. Add an isolated, opt-in live integration test suite.
+5. Provide a synthetic-only hosted demo and Docker Compose environment.
 
-```bash
-python scripts/benchmark_automation.py
-```
-
-These timings represent core Python processing latency, not end-to-end technician time. **Manual-versus-automated checklist preparation time has not been measured**, so this project makes no quantified time-saving or productivity claim. Use `BENCHMARK.md` for the paired manual-versus-automated measurement procedure, including what to time and how to record omissions and corrections. Actual device provisioning and account setup are out of scope.
-
-## Screenshots
-
-<img width="2501" height="1328" alt="Screenshot 2026-10-22 123643" src="https://github.com/user-attachments/assets/6923482e-3eb2-4e67-9854-90963b9d7289" />
-
-## Limitations and future improvements
-
-Current limitations:
-- No real identity, ticketing, endpoint-management, licensing, or inventory integration.
-- No account creation, access changes, device enrolment, or licence assignment.
-- Asset collision checks use only bundled synthetic records.
-- No persistent audit history; requests in the web UI remain in session state.
-- Browser-level UI behaviour must be checked after installing dependencies locally.
-- No manual-versus-automated time-saving result is claimed.
-
-Potential future improvements, only if useful:
-1. Add a small, optional CSV/JSON batch preview while preserving one-request-per-run validation.
-2. Add a local, privacy-conscious history of generated plan metadata without retaining employee names or request contents.
-3. Add a manually verified screenshot and a measured paired benchmark.
-4. Add more tests or UI automation only if a new feature justifies them.
-
-## Security and privacy
-
-Use synthetic identities and fictional asset references in demos. Do not import employer data or production credentials. Keep `.env`, Streamlit secrets, virtual environments, caches, and local outputs out of version control. Review `git status` before committing. OnboardOps is a planning aid, not a security control or a substitute for approved IT processes.
+OnboardOps is a personal portfolio project. It is an integration and workflow prototype, not a production provisioning system.
