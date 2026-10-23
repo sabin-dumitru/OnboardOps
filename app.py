@@ -18,7 +18,8 @@ st.markdown("""
 .hero h1 {margin: 0; color: #172b4d; letter-spacing: -0.04em;}
 .hero p {color: #52627a; margin: .4rem 0 0;}
 .small-note {font-size: .88rem; color: #637083;}
-[data-testid="stMetric"] {background: #f7f9fc; padding: .8rem; border-radius: 12px; border: 1px solid #e3e8ef;}
+[data-testid="stMetric"] {background: #f7f9fc; color: #172b4d; padding: .8rem; border-radius: 12px; border: 1px solid #e3e8ef;}
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] *, [data-testid="stMetricValue"], [data-testid="stMetricValue"] *, [data-testid="stMetricDelta"], [data-testid="stMetricDelta"] * {color: #172b4d !important; opacity: 1 !important;}
 </style>
 <div class="hero"><h1>🧭 OnboardOps</h1><p>Turn a new-joiner request into a consistent technician checklist and equipment allocation record.</p></div>
 """, unsafe_allow_html=True)
@@ -55,11 +56,20 @@ with st.sidebar:
     st.subheader("Quick start")
     st.write("Load the synthetic example to explore a complete request.")
     if st.button("Load sample request", use_container_width=True):
-        st.session_state["request_data"] = dict(sample_records[0])
-        populate_form_state(dict(sample_records[0]))
-        st.session_state["findings"] = validate_request(dict(sample_records[0]))
-        st.session_state["tasks"] = generate_checklist(dict(sample_records[0]), templates)
-        st.session_state["generated"] = True
+        # Keep the demo request distinct from the synthetic inventory records.
+        # Equipment is intentionally unassigned so the demo shows follow-up warnings,
+        # not false duplicate errors for a newly requested employee.
+        demo_request = dict(sample_records[0])
+        demo_request["employee_id"] = "DEMO-NEW-1043"
+        demo_request["asset_tag"] = ""
+        demo_request["serial_number"] = ""
+        duplicate_ids = {str(r.get("employee_id", "")).casefold() for r in sample_records}
+        findings = validate_request(demo_request, duplicate_ids, known_asset_tags, known_serial_numbers)
+        st.session_state["request_data"] = demo_request
+        populate_form_state(demo_request)
+        st.session_state["findings"] = findings
+        st.session_state["tasks"] = generate_checklist(demo_request, templates)
+        st.session_state["generated"] = not any(f["severity"] == "error" for f in findings)
         st.rerun()
     st.markdown("**Or import one request**")
     uploaded_request = st.file_uploader("Synthetic request (.json or .csv)", type=["json", "csv"], help="JSON object or one-row CSV. List fields in CSV use semicolons.")
