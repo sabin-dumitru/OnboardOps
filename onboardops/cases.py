@@ -43,6 +43,14 @@ class CaseStore:
         );
         CREATE INDEX IF NOT EXISTS idx_cases_updated_at ON cases(updated_at DESC);
         CREATE INDEX IF NOT EXISTS idx_case_events_case ON case_events(case_id, event_id);
+        CREATE TABLE IF NOT EXISTS provider_approvals (
+          approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          case_id TEXT NOT NULL REFERENCES cases(case_id),
+          requester_id TEXT NOT NULL, approver_id TEXT NOT NULL,
+          provider TEXT NOT NULL, operation TEXT NOT NULL,
+          payload_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
+          approved_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
+        );
         """)
         self.connection.commit()
 
@@ -207,7 +215,7 @@ class CaseStore:
             self.connection.execute(
                 "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
                 (case_id, "provider_action.approved", approver_id, None, None,
-                 self._event_metadata({"approval_id": approval_id, "provider": provider, "operation": operation, "fingerprint": fingerprint}), now))
+                 json.dumps({"approval_id": approval_id, "provider": provider, "operation": operation, "fingerprint": fingerprint}, sort_keys=True), now))
             self.connection.commit()
         except Exception:
             self.connection.rollback()
