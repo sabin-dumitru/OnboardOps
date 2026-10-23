@@ -27,7 +27,7 @@ Install Docker Desktop or Docker Engine, then run:
 docker compose up --build
 ```
 
-Open [http://localhost:8501](http://localhost:8501). The app is bound to your own computer only. Synthetic case data persists in the local `data/` folder. See [Docker demo guide](docs/DOCKER_DEMO.md).
+Open [http://localhost:8501](http://localhost:8501). The app is bound to your own computer only. Synthetic case data persists in Docker-managed local volumes. See [Docker demo guide](docs/DOCKER_DEMO.md).
 
 ### Option B — Python virtual environment
 
