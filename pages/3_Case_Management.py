@@ -88,38 +88,38 @@ with tab_list:
             case=None
         if case is not None:
             left,right=st.columns(2)
-        with left:
-            st.write("**Synthetic request data**")
-            st.json(case["request_data"],expanded=False)
-        with right:
-            targets=sorted(t for t in TRANSITIONS.get(case["status"],set()) if t != "approved")
-            if case["status"] == "pending_approval":
-                st.caption("Approval must come from a different identity than the requester.")
-                if st.button("Approve case", key=f"approve_{selected}"):
-                    try:
-                        require_permission(actor, "approvals:review")
-                        approved = store.approve_case(case_id=selected, approver_id=actor.subject,
-                                                      expected_version=case["version"])
-                        st.success(f"{approved['case_id']} approved.")
-                        st.rerun()
-                    except Exception as exc:
-                        show_error(exc)
-            if targets:
-                target=st.selectbox("Move to status",targets,key=f"status_{selected}")
-                if st.button("Save status change"):
-                    try:
-                        require_permission(actor,"cases:transition")
-                        store.transition(case_id=selected,target=target,actor_id=actor.subject,expected_version=case["version"])
-                        st.success("Status saved.")
-                        st.rerun()
-                    except Exception as exc:
-                        show_error(exc)
-            else:
-                st.caption("This case is in a terminal state.")
-        st.write("**Case history**")
-        st.dataframe([{"Event":e["event_type"],"Actor":e["actor_id"],"From":e["from_status"] or "—",
-                       "To":e["to_status"] or "—","At":e["occurred_at"]} for e in store.list_events(selected)],
-                     use_container_width=True,hide_index=True)
+            with left:
+                st.write("**Synthetic request data**")
+                st.json(case["request_data"],expanded=False)
+            with right:
+                targets=sorted(t for t in TRANSITIONS.get(case["status"],set()) if t != "approved")
+                if case["status"] == "pending_approval":
+                    st.caption("Approval must come from a different identity than the requester.")
+                    if st.button("Approve case", key=f"approve_{selected}"):
+                        try:
+                            require_permission(actor, "approvals:review")
+                            approved = store.approve_case(case_id=selected, approver_id=actor.subject,
+                                                          expected_version=case["version"])
+                            st.success(f"{approved['case_id']} approved.")
+                            st.rerun()
+                        except Exception as exc:
+                            show_error(exc)
+                if targets:
+                    target=st.selectbox("Move to status",targets,key=f"status_{selected}")
+                    if st.button("Save status change"):
+                        try:
+                            require_permission(actor,"cases:transition")
+                            store.transition(case_id=selected,target=target,actor_id=actor.subject,expected_version=case["version"])
+                            st.success("Status saved.")
+                            st.rerun()
+                        except Exception as exc:
+                            show_error(exc)
+                else:
+                    st.caption("This case is in a terminal state.")
+            st.write("**Case history**")
+            st.dataframe([{"Event":e["event_type"],"Actor":e["actor_id"],"From":e["from_status"] or "—",
+                           "To":e["to_status"] or "—","At":e["occurred_at"]} for e in store.list_events(selected)],
+                         use_container_width=True,hide_index=True)
     else:
         st.info("No saved cases yet. Create one in the next tab.")
 
