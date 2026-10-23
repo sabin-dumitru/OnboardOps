@@ -42,8 +42,8 @@ def create_github_followup(*, store: CaseStore, approval_id: int, actor: Actor,
     key = f"{case_id}:github:create_issue:{approval_id}"
     ledger.begin_action(idempotency_key=key, provider="github", operation="create_issue")
     # Consume before network I/O. A crash or timeout requires reconciliation, not a blind retry.
-    store.consume_provider_approval(approval_id, expected_fingerprint=fingerprint)
     try:
+        store.consume_provider_approval(approval_id, expected_fingerprint=fingerprint)
         result = client.create_issue(repository=repository, title=title, body=body, dry_run=False,
                                      approval=Approval(record["requester_id"], record["approver_id"],
                                                        record["fingerprint"], record["approved_at"]))
