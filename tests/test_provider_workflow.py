@@ -73,5 +73,22 @@ class GitHubWorkflowTests(unittest.TestCase):
                 title="Follow up CASE-201",body="Synthetic test")
         self.assertEqual(self.session.request.call_count,1)
 
+    def test_approval_cannot_be_used_for_another_case(self):
+        approval=self._approval()
+        with self.assertRaises(WorkflowError):
+            create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=self.requester,
+                client=self.client,ledger=self.ledger,case_id="CASE-OTHER",repository="example/demo",
+                title="Follow up CASE-201",body="Synthetic test")
+        self.session.request.assert_not_called()
+
+    def test_approval_cannot_be_used_by_a_different_requester(self):
+        approval=self._approval()
+        other=Actor("other-operator@example.invalid",frozenset({"onboardops-operator"}),"trusted_proxy")
+        with self.assertRaises(WorkflowError):
+            create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=other,
+                client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
+                title="Follow up CASE-201",body="Synthetic test")
+        self.session.request.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()
