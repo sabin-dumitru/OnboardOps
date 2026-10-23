@@ -53,6 +53,29 @@ class CaseStoreTests(unittest.TestCase):
         with self.assertRaises(WorkflowError): self.store.transition(case_id="CASE-102",target="completed",actor_id="alice")
         self.store.transition(case_id="CASE-102",target="pending_approval",actor_id="alice",expected_version=1)
         with self.assertRaises(CaseStoreError): self.store.transition(case_id="CASE-102",target="approved",actor_id="bob",expected_version=1)
+    def test_case_approval_requires_a_different_actor_and_cannot_be_bypassed(self):
+        self.store.create_case(case_id="CASE-104",lifecycle="onboarding",requester_id="alice",summary="Demo")
+        self.store.transition(case_id="CASE-104",target="pending_approval",actor_id="alice",expected_version=1)
+        with self.assertRaises(WorkflowError):
+            self.store.approve_case(case_id="CASE-104",approver_id="alice",expected_version=2)
+        with self.assertRaises(WorkflowError):
+            self.store.transition(case_id="CASE-104",target="approved",actor_id="bob",expected_version=2)
+        approved=self.store.approve_case(case_id="CASE-104",approver_id="bob",expected_version=2)
+        self.assertEqual(approved["status"],"approved")
+        self.assertEqual(self.store.list_events("CASE-104")[-1]["actor_id"],"bob")
+
+    def test_provider_approval_is_persisted_and_secret_payload_is_redacted(self):
+        self.store.create_case(case_id="CASE-105",lifecycle="onboarding",requester_id="alice",summary="Demo")
+        record=self.store.record_provider_approval(case_id="CASE-105",requester_id="alice",approver_id="bob",
+            provider="github",operation="create_issue",payload={"title":"Demo","api_token":"secret"},
+            fingerprint="fingerprint-demo")
+        self.store.close()
+        self.store=CaseStore(self.path)
+        restored=self.store.get_provider_approval(record["approval_id"])
+        self.assertEqual(restored["status"],"approved")
+        self.assertEqual(restored["payload"]["api_token"],"[REDACTED]")
+        self.assertEqual(restored["approver_id"],"bob")
+
     def test_secret_values_are_redacted_from_stored_request(self):
         case=self.store.create_case(case_id="CASE-103",lifecycle="onboarding",requester_id="alice",summary="Demo",request_data={"api_token":"must-not-persist","team":"IT"})
         self.assertEqual(case["request_data"]["api_token"],"[REDACTED]")
