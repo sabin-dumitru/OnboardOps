@@ -36,6 +36,3 @@ jobs:
         run: python scripts/demo.py
       - name: Exercise offline integration demo
         run: python scripts/integration_demo.py
-      - name: Build local demo container
-        if: matrix.python-version == "3.12"
-        run: docker build --tag onboardops-demo:ci .
