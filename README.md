@@ -6,7 +6,7 @@ This portfolio project was developed with AI assistance. The repository owner re
 
 **Copyright and usage:** Copyright © 2026 Sabin Dumitru. All rights reserved. No permission is granted to use, copy, modify, or redistribute this code. The repository is public for viewing as a portfolio; public visibility does not mean the code is open source. This notice states the owner's intent but is not legal advice.
 
-OnboardOps standardises onboarding preparation for Windows and macOS. The Streamlit flow validates a synthetic request and generates a technician checklist plus a hardware allocation CSV. The integration foundation adds reusable Python adapters for Microsoft Graph / Intune, ServiceNow, Jira Cloud, Snipe-IT, Workday and GitHub.
+OnboardOps standardises onboarding preparation for Windows and macOS. The Streamlit flow validates a synthetic request and generates a technician checklist plus a hardware allocation CSV. The integration foundation adds reusable Python adapters for Microsoft Graph / Intune, ServiceNow, Jira Cloud, Snipe-IT, Workday and GitHub. A separate Case Management page now stores synthetic cases and status history locally in SQLite, with a demo-only identity and a trusted-proxy role-checking seam.
 
 > **Honest scope:** provider adapters are implemented but have not been verified against live tenant environments. The Streamlit Integration Lab supports configured read-only lookups and offline write previews; live writes are not exposed in the UI until authentication and server-side RBAC are implemented. Writes default to dry-run. Do not use this project for production employee data or production changes.
 
@@ -38,6 +38,14 @@ python scripts/integration_demo.py
 ```
 
 The integration demo previews provider payloads, exercises a synthetic approval flow and verifies a local audit hash chain. It makes no HTTP requests. Tests use mocks and synthetic data; they do not prove live tenant permissions or live API compatibility.
+
+## Persistent cases and authentication boundary
+
+Run `python -m streamlit run app.py` and choose **Case management** in the multipage navigation to create and revisit synthetic cases. The local SQLite store persists status and event history across restarts and detects stale status updates. The default demo identity can only manage synthetic cases; it cannot authorise provider writes.
+
+The optional `ONBOARDOPS_AUTH_MODE=trusted_proxy` mode requires an explicitly trusted authentication proxy and recognised role headers. This is an integration seam, not a bundled OIDC provider. Follow [Case persistence and authentication notes](docs/AUTH_AND_CASES.md) before configuring it. Do not expose Streamlit directly to untrusted clients or enter real employee data.
+
+A tested GitHub issue workflow connects role checks, separate-actor payload-bound approval, the GitHub adapter, local action ledger and audit event. The HTTP boundary is mocked in tests; no live GitHub write has been verified. Live writes remain disabled in the UI.
 
 ## Optional integration adapters
 
