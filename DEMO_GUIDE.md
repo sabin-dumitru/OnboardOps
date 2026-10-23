@@ -1,27 +1,47 @@
-# OnboardOps — recruiter demo (3–4 minutes)
+# OnboardOps — recruiter demo (4–5 minutes)
 
 ## Story to tell
 
-"I wanted to standardise the repetitive planning and documentation steps in IT onboarding. This local Python/Streamlit tool validates a synthetic request and generates a checklist and equipment record. It does not provision accounts, assign access, or enrol devices."
+"I built a local Python/Streamlit prototype to standardise repetitive IT onboarding preparation. It validates a synthetic request and generates a technician checklist plus a hardware allocation report. It does not provision accounts, grant access, or enrol devices."
 
 ## Walkthrough
 
-1. **Start with a request.** Launch with `streamlit run app.py`; import `data/examples/windows_request.csv`.
-2. **Explain the rules.** Show the Windows-specific update, management, and BitLocker prompts. Point out the application and access tasks are based on the request and require technician verification.
-3. **Compare operating systems.** Import `data/examples/macos_request.json`; show macOS update, MDM, and FileVault prompts and the different selected applications/accessories.
-4. **Demonstrate validation.** Import `data/examples/invalid_request.json`. Explain the malformed date and unsupported OS errors and the missing asset/software/access follow-ups. A draft is displayed for troubleshooting but is not ready to use while blocking errors remain.
-5. **Show the exports.** Download the Markdown checklist and CSV allocation report. Equipment is marked pending verification; no production inventory is modified.
-6. **Show engineering discipline.** Run the tests with `python -m unittest discover -s tests -v`. Mention GitHub Actions runs tests, compilation, and the console demo on pushes and pull requests.
-7. **Discuss evaluation honestly.** `python scripts/benchmark_automation.py` measures core processing latency only. A manual-vs-automated end-to-end baseline has not been measured; don't claim quantified savings until you run the paired experiment in `BENCHMARK.md`.
+1. **Start the app.** Run `python -m streamlit run app.py` and open the local address printed in the terminal.
+2. **Use the sample preset.** Select **Load sample request** in the sidebar. The sample uses a reserved synthetic employee ID and leaves laptop assignment details blank, so the app should show follow-up warnings rather than duplicate-record errors.
+3. **Explain the validation.** Show the task, error and follow-up counts. Errors block readiness; warnings are reminders to verify missing information. An unassigned asset is not invented just to make validation look clean.
+4. **Review the checklist.** Explain the Windows/macOS prompts, application/licence checks and access-verification steps. These are technician prompts, not automatic provisioning.
+5. **Show both exports.** Download the Markdown checklist and CSV hardware report. Explain that the CSV is a handover/record format and does not update a live inventory system.
+6. **Compare sample files.** Import `data/examples/macos_request.json` and `data/examples/invalid_request.json` from the sidebar to show OS-specific tasks and blocking validation errors.
+7. **Open Integration Lab.** Use the Streamlit page navigation to open **Integration Lab**. With no credentials configured, show provider readiness statuses and offline write previews. Do not add real credentials for the portfolio demo and do not claim the provider connections have been verified against live tenants.
+8. **Explain engineering safeguards.** Show the dry-run defaults, payload-bound approval checks, bounded HTTP timeouts, redirect rejection, safe error handling and local audit-chain tests. Clarify that these are prototype safeguards, not a complete multi-user authorisation system.
+9. **Show the automated checks.** Run the commands below or open the GitHub Actions workflow. The workflow tests Python 3.10–3.13, compiles the source and exercises both console demos.
+10. **Discuss measurement honestly.** `python scripts/benchmark_automation.py` measures core processing latency only. End-to-end manual-vs-automated time savings have not been measured; do not claim quantified savings until the paired experiment in `BENCHMARK.md` has been run.
 
-## Commands
+## Windows PowerShell commands
 
-```bash
+Run these from the repository folder:
+
+```powershell
+py -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
 python -m pip install -r requirements.txt
-streamlit run app.py
-python -m unittest discover -s tests -v
-python scripts/demo.py
-python scripts/benchmark_automation.py
+python -m streamlit run app.py
 ```
 
-All sample data is synthetic. The project was developed with AI assistance and is a personal portfolio project, not a production IT system.
+For the automated checks and offline demonstrations:
+
+```powershell
+python -m unittest discover -s tests -v
+python -m compileall -q app.py onboardops tests scripts
+python scripts/demo.py
+python scripts/integration_demo.py
+```
+
+## Claims to avoid
+
+- Do not say that OnboardOps provisions accounts or devices.
+- Do not say the provider adapters have been tested against real company tenants.
+- Do not claim a measured time-saving percentage.
+- Do not describe the local SQLite ledger as a tamper-proof enterprise audit system or the approval object as production-grade access control.
+
+All sample data is synthetic. The project was developed with AI assistance. It is a personal portfolio prototype, not a production IT system.
