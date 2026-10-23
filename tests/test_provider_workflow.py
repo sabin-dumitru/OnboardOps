@@ -5,7 +5,7 @@ from unittest.mock import Mock
 from onboardops.auth import Actor, AuthorizationError
 from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.provider_workflow import approve_github_issue, create_github_followup
-from onboardops.workflow import ActionLedger, WorkflowError
+from onboardops.workflow import ActionLedger, DuplicateActionError, WorkflowError
 from onboardops.integrations.github import GitHubClient
 
 class GitHubWorkflowTests(unittest.TestCase):
@@ -67,7 +67,7 @@ class GitHubWorkflowTests(unittest.TestCase):
         create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=self.requester,
             client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
             title="Follow up CASE-201",body="Synthetic test")
-        with self.assertRaises(CaseStoreError):
+        with self.assertRaises(DuplicateActionError):
             create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=self.requester,
                 client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
                 title="Follow up CASE-201",body="Synthetic test")
