@@ -11,6 +11,10 @@ EVENT_LABELS = {
     "provider.approval_recorded": "Provider action approved",
     "provider.approval_consumed": "Provider approval consumed",
     "provider.approval_revoked": "Provider approval revoked",
+    "provider_action.approved": "Provider action approved",
+    "provider_action.approval_consumed": "Provider approval consumed",
+    "provider_action.approval_revoked": "Provider approval revoked",
+    "provider_action.approval_expired": "Provider approval expired",
 }
 
 
@@ -32,7 +36,7 @@ def describe_event(event: dict[str, Any]) -> dict[str, str]:
             details.append(f"Status: {event.get('from_status') or '—'} → {event.get('to_status') or '—'}")
     elif event_type == "case.created":
         details.append("Initial case record created")
-    elif event_type.startswith("provider."):
+    elif event_type.startswith(("provider.", "provider_action.")):
         details.append("Provider action metadata is available in the approval ledger")
     return {
         "event": EVENT_LABELS.get(event_type, "Other event"),
