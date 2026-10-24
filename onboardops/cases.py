@@ -1,14 +1,13 @@
 """Persistent local onboarding case store with explicit lifecycle and audit events."""
 from __future__ import annotations
 import json
-import os
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any
 from onboardops.workflow import TRANSITIONS, WorkflowError
 from onboardops.sanitization import redact_sensitive_fields
+from onboardops.sqlite_utils import prepare_sqlite_path
 
 _CASE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
 _LIFECYCLES = {"onboarding", "offboarding", "transfer", "change"}
@@ -24,33 +23,7 @@ def _now() -> str:
 class CaseStore:
     """Durable local case records. Callers must enforce identity and permission checks."""
     def __init__(self, database_path: str | Path = "data/onboardops_cases.sqlite3") -> None:
-        raw_path = str(database_path)
-        if raw_path == ":memory:":
-            self.database_path = raw_path
-        else:
-            expanded_path = Path(raw_path).expanduser()
-            self.database_path = str(expanded_path)
-            missing_parents = []
-            parent = expanded_path.parent
-            while not parent.exists():
-                missing_parents.append(parent)
-                parent = parent.parent
-            for directory in reversed(missing_parents):
-                try:
-                    directory.mkdir(mode=0o700)
-                except FileExistsError:
-                    if not directory.is_dir():
-                        raise
-            try:
-                descriptor = os.open(
-                    self.database_path,
-                    os.O_CREAT | os.O_EXCL | os.O_WRONLY,
-                    0o600,
-                )
-            except FileExistsError:
-                pass
-            else:
-                os.close(descriptor)
+        self.database_path = prepare_sqlite_path(database_path)
         self.connection = sqlite3.connect(self.database_path, timeout=10)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys=ON")
