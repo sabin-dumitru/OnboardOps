@@ -280,6 +280,7 @@ class CaseStoreTests(unittest.TestCase):
         try:
             self.assertEqual(stat.S_IMODE(database.stat().st_mode) & 0o077, 0)
             self.assertEqual(stat.S_IMODE(database.parent.stat().st_mode) & 0o077, 0)
+            self.assertEqual(stat.S_IMODE(database.parent.parent.stat().st_mode) & 0o077, 0)
             self.assertEqual(store.database_path, str(database))
         finally:
             store.close()
