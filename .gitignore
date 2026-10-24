@@ -12,3 +12,11 @@ venv/
 htmlcov/
 outputs/*
 !outputs/.gitkeep
+
+# Local case databases and SQLite sidecar files; never commit demo or user records.
+data/*.sqlite3
+data/*.sqlite3-*
+data/*.db
+backups/*.sqlite3
+backups/*.sqlite3-*
+backups/*.db
