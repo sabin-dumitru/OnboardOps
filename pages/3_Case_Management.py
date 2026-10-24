@@ -177,38 +177,52 @@ with tab_list:
                         )
                         triage_submitted = st.form_submit_button("Save triage")
                     if triage_submitted:
-                    try:
-                        require_permission(actor, "cases:transition")
-                        service.update_triage(
-                            case_id=selected, priority=priority_value, assigned_to=assignee_value,
-                            expected_version=case["version"],
-                        )
-                        st.success("Priority and assignment saved.")
-                        st.rerun()
-                    except Exception as exc:
-                        show_error(exc)
-                targets=sorted(t for t in TRANSITIONS.get(case["status"],set()) if t != "approved")
-                if case["status"] == "pending_approval":
-                    st.caption("Approval must come from a different identity than the requester.")
-                    if st.button("Approve case", key=f"approve_{selected}"):
                         try:
-                            require_permission(actor, "approvals:review")
-                            approved = service.approve_case(case_id=selected,
-                                                            expected_version=case["version"])
-                            st.success(f"{approved['case_id']} approved.")
+                            require_permission(actor, "cases:transition")
+                            service.update_triage(
+                                case_id=selected, priority=priority_value, assigned_to=assignee_value,
+                                expected_version=case["version"],
+                            )
+                            st.success("Priority and assignment saved.")
                             st.rerun()
                         except Exception as exc:
                             show_error(exc)
-                if targets:
-                    target=st.selectbox("Move to status",targets,key=f"status_{selected}")
-                    if st.button("Save status change"):
+                else:
+                    st.caption("Triage updates require an operator or admin role.")
+
+                if case["status"] == "pending_approval":
+                    st.caption("Approval must come from a different identity than the requester.")
+                    if has_permission(actor, "approvals:review"):
+                        if st.button("Approve case", key=f"approve_{selected}"):
+                            try:
+                                require_permission(actor, "approvals:review")
+                                approved = service.approve_case(
+                                    case_id=selected, expected_version=case["version"],
+                                )
+                                st.success(f"{approved['case_id']} approved.")
+                                st.rerun()
+                            except Exception as exc:
+                                show_error(exc)
+                    else:
+                        st.caption("Your role does not permit approval review.")
+
+                targets = sorted(
+                    t for t in TRANSITIONS.get(case["status"], set()) if t != "approved"
+                )
+                if targets and has_permission(actor, "cases:transition"):
+                    target = st.selectbox("Move to status", targets, key=f"status_{selected}")
+                    if st.button("Save status change", key=f"save_status_{selected}"):
                         try:
-                            require_permission(actor,"cases:transition")
-                            service.transition(case_id=selected,target=target,expected_version=case["version"])
+                            require_permission(actor, "cases:transition")
+                            service.transition(
+                                case_id=selected, target=target, expected_version=case["version"],
+                            )
                             st.success("Status saved.")
                             st.rerun()
                         except Exception as exc:
                             show_error(exc)
+                elif targets:
+                    st.caption("Status changes require an operator or admin role.")
                 else:
                     st.caption("This case is in a terminal state.")
             st.write("**Case history**")
