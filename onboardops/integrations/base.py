@@ -1,6 +1,7 @@
 """Defensive JSON REST client shared by provider adapters."""
 from __future__ import annotations
 from dataclasses import dataclass
+import json
 import math
 from typing import Any
 from urllib.parse import unquote, urlsplit
@@ -94,7 +95,7 @@ class JsonApiClient:
             response = self.session.request(
                 method.upper(), f"{self.base_url}{path}", params=params, json=json_body,
                 headers=request_headers, auth=self.auth,
-                timeout=(3.05, self.timeout_seconds), allow_redirects=False,
+                timeout=(3.05, self.timeout_seconds), allow_redirects=False, stream=True,
             )
         except requests.Timeout as exc:
             raise IntegrationError("timeout", "Provider request timed out; a write outcome may be unknown.",
@@ -102,27 +103,57 @@ class JsonApiClient:
         except requests.RequestException as exc:
             raise IntegrationError("network_error", "Could not reach provider; check connectivity and endpoint configuration.",
                                    retryable=True) from exc
-        if 300 <= response.status_code < 400:
-            raise IntegrationError("redirect_rejected", "Provider redirect was not followed for security.",
-                                   status_code=response.status_code)
-        if response.status_code == 429 or response.status_code >= 500:
-            raise IntegrationError("provider_unavailable", "Provider is temporarily unavailable or rate-limited.",
-                                   status_code=response.status_code, retryable=True)
-        if not 200 <= response.status_code < 300:
-            raise IntegrationError("provider_rejected_request",
-                                   "Provider rejected the request. Check permissions, configuration and payload schema.",
-                                   status_code=response.status_code)
-        if response.status_code == 204 or not response.content:
-            return ApiResult(response.status_code, None)
-        if len(response.content) > _MAX_RESPONSE_BYTES:
-            raise IntegrationError(
-                "response_too_large",
-                "Provider response exceeded the 2 MiB safety limit.",
-                status_code=response.status_code,
-            )
+
         try:
-            data = response.json()
-        except (ValueError, requests.JSONDecodeError) as exc:
-            raise IntegrationError("invalid_response", "Provider returned a successful response that was not valid JSON.",
-                                   status_code=response.status_code) from exc
-        return ApiResult(response.status_code, data)
+            if 300 <= response.status_code < 400:
+                raise IntegrationError("redirect_rejected", "Provider redirect was not followed for security.",
+                                       status_code=response.status_code)
+            if response.status_code == 429 or response.status_code >= 500:
+                raise IntegrationError("provider_unavailable", "Provider is temporarily unavailable or rate-limited.",
+                                       status_code=response.status_code, retryable=True)
+            if not 200 <= response.status_code < 300:
+                raise IntegrationError("provider_rejected_request",
+                                       "Provider rejected the request. Check permissions, configuration and payload schema.",
+                                       status_code=response.status_code)
+            if response.status_code == 204:
+                return ApiResult(response.status_code, None)
+
+            body = bytearray()
+            try:
+                for chunk in response.iter_content(chunk_size=64 * 1024):
+                    if not chunk:
+                        continue
+                    if len(body) + len(chunk) > _MAX_RESPONSE_BYTES:
+                        raise IntegrationError(
+                            "response_too_large",
+                            "Provider response exceeded the 2 MiB safety limit.",
+                            status_code=response.status_code,
+                        )
+                    body.extend(chunk)
+            except IntegrationError:
+                raise
+            except requests.Timeout as exc:
+                raise IntegrationError(
+                    "response_incomplete",
+                    "Provider response timed out while being read; a write outcome may be unknown.",
+                    status_code=response.status_code,
+                    retryable=True,
+                ) from exc
+            except requests.RequestException as exc:
+                raise IntegrationError(
+                    "response_incomplete",
+                    "Provider response could not be fully read; a write outcome may be unknown.",
+                    status_code=response.status_code,
+                    retryable=True,
+                ) from exc
+
+            if not body:
+                return ApiResult(response.status_code, None)
+            try:
+                data = json.loads(body)
+            except (ValueError, UnicodeDecodeError) as exc:
+                raise IntegrationError("invalid_response", "Provider returned a successful response that was not valid JSON.",
+                                       status_code=response.status_code) from exc
+            return ApiResult(response.status_code, data)
+        finally:
+            response.close()
