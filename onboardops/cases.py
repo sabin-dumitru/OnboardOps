@@ -104,7 +104,7 @@ class CaseStore:
             raise CaseStoreError("Request data must be a JSON object.")
         try:
             safe_request = self._safe_json(request_data or {})
-            request_json = json.dumps(safe_request, sort_keys=True, ensure_ascii=False)
+            request_json = json.dumps(safe_request, sort_keys=True, ensure_ascii=False, allow_nan=False)
         except (TypeError, ValueError, RecursionError) as exc:
             raise CaseStoreError("Request data must be valid JSON-compatible data.") from exc
         if len(request_json.encode("utf-8")) > _MAX_REQUEST_DATA_BYTES:
@@ -219,7 +219,10 @@ class CaseStore:
             raise WorkflowError("The requester cannot approve their own provider action.")
         if not all(x.strip() for x in (provider, operation, fingerprint)):
             raise CaseStoreError("Provider, operation and fingerprint are required.")
-        safe_payload = json.dumps(self._safe_json(payload), sort_keys=True, ensure_ascii=False)
+        try:
+            safe_payload = json.dumps(self._safe_json(payload), sort_keys=True, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise CaseStoreError("Provider approval payload must be valid JSON-compatible data.") from exc
         approved_at = datetime.now(timezone.utc)
         now = approved_at.isoformat()
         expires_at = (approved_at + _PROVIDER_APPROVAL_TTL).isoformat()
@@ -247,7 +250,7 @@ class CaseStore:
             self.connection.execute(
                 "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
                 (case_id, "provider_action.approved", approver_id, None, None,
-                 json.dumps({"approval_id": approval_id, "provider": provider, "operation": operation, "fingerprint": fingerprint, "expires_at": expires_at}, sort_keys=True), now))
+                 json.dumps({"approval_id": approval_id, "provider": provider, "operation": operation, "fingerprint": fingerprint, "expires_at": expires_at}, sort_keys=True, allow_nan=False), now))
             self.connection.commit()
         except Exception:
             self.connection.rollback()
@@ -381,7 +384,7 @@ class CaseStore:
             metadata = json.dumps({
                 "priority_from": old_priority, "priority_to": priority,
                 "assigned_to_from": old_assignee, "assigned_to_to": assignee,
-            }, sort_keys=True)
+            }, sort_keys=True, allow_nan=False)
             self.connection.execute(
                 "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) "
                 "VALUES (?,?,?,?,?,?,?)",
