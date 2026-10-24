@@ -37,9 +37,10 @@ div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
 st.markdown(accessibility_styles(), unsafe_allow_html=True)
 
 st.warning(
-    "This page is intended for local development. It can perform configured read-only API lookups, "
-    "but it does not expose live writes from the UI. Provider write adapters are available in Python, "
-    "yet the team identity/RBAC layer is not implemented. Do not expose a credentialed instance to a network."
+    "This page is intended for local development and uses configured provider credentials only when explicitly authorised. "
+    "Live read-only lookups require an admin/operator identity supplied by the trusted-proxy seam; the local demo identity is denied. "
+    "Live writes are not exposed in this UI. The proxy seam is not a bundled OIDC/SSO implementation, so do not expose a credentialed "
+    "instance to a network until identity propagation, header stripping, TLS, and network isolation have been independently reviewed."
 )
 
 headers = {}
