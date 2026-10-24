@@ -52,5 +52,32 @@ class CaseExportTests(unittest.TestCase):
         self.assertEqual(render_case_export_json(packet), render_case_export_json(packet))
 
 
+
+    def test_export_redacts_sensitive_fields_from_legacy_request_data(self):
+        legacy_case = dict(self.case)
+        legacy_case["request_data"] = {
+            "employee_id": "DEMO-1",
+            "api_token": "legacy-live-token",
+            "nested": [{"client_secret": "legacy-secret", "department": "IT"}],
+        }
+        rendered = render_case_export_json(build_case_export(legacy_case, self.events))
+        self.assertNotIn("legacy-live-token", rendered)
+        self.assertNotIn("legacy-secret", rendered)
+        packet = json.loads(rendered)
+        self.assertEqual(packet["case"]["request_data"]["api_token"], "[REDACTED]")
+        self.assertEqual(packet["case"]["request_data"]["nested"][0]["client_secret"], "[REDACTED]")
+        self.assertEqual(packet["case"]["request_data"]["nested"][0]["department"], "IT")
+
+
+    def test_export_redacts_camel_case_secrets(self):
+        legacy_case = dict(self.case)
+        legacy_case["request_data"] = {"apiKey": "legacy-key", "privateKey": "legacy-private-key"}
+        rendered = render_case_export_json(build_case_export(legacy_case, self.events))
+        self.assertNotIn("legacy-key", rendered)
+        self.assertNotIn("legacy-private-key", rendered)
+        exported = json.loads(rendered)["case"]["request_data"]
+        self.assertEqual(exported["apiKey"], "[REDACTED]")
+        self.assertEqual(exported["privateKey"], "[REDACTED]")
+
 if __name__ == "__main__":
     unittest.main()
