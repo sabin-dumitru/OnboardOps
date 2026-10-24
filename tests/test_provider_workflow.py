@@ -6,7 +6,7 @@ from unittest.mock import Mock
 from onboardops.auth import Actor, AuthorizationError
 from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.provider_workflow import approve_github_issue, create_github_followup
-from onboardops.workflow import ActionLedger, DuplicateActionError, WorkflowError
+from onboardops.workflow import ActionLedger, DuplicateActionError, WorkflowError, action_fingerprint
 from onboardops.integrations.github import GitHubClient
 from onboardops.integrations.base import IntegrationError
 
@@ -119,6 +119,57 @@ class GitHubWorkflowTests(unittest.TestCase):
             create_github_followup(store=self.store,approval_id=approval["approval_id"],actor=other,
                 client=self.client,ledger=self.ledger,case_id="CASE-201",repository="example/demo",
                 title="Follow up CASE-201",body="Synthetic test")
+        self.session.request.assert_not_called()
+
+    def test_expired_approval_is_failed_before_any_provider_request(self):
+        approval = self._approval()
+        self.store.connection.execute(
+            "UPDATE provider_approvals SET expires_at=? WHERE approval_id=?",
+            ("2000-01-01T00:00:00+00:00", approval["approval_id"]),
+        )
+        self.store.connection.commit()
+        with self.assertRaisesRegex(CaseStoreError, "expired"):
+            create_github_followup(
+                store=self.store, approval_id=approval["approval_id"], actor=self.requester,
+                client=self.client, ledger=self.ledger, case_id="CASE-201",
+                repository="example/demo", title="Follow up CASE-201", body="Synthetic test",
+            )
+        action = self.ledger.connection.execute("SELECT status FROM actions").fetchone()
+        self.assertEqual(action["status"], "failed")
+        self.session.request.assert_not_called()
+
+    def test_provider_4xx_rejection_is_failed_not_unknown(self):
+        approval = self._approval()
+        response = Mock(status_code=403, content=b"private rejection details")
+        response.json.return_value = {"message": "private rejection details"}
+        self.session.request.return_value = response
+        with self.assertRaises(IntegrationError) as caught:
+            create_github_followup(
+                store=self.store, approval_id=approval["approval_id"], actor=self.requester,
+                client=self.client, ledger=self.ledger, case_id="CASE-201",
+                repository="example/demo", title="Follow up CASE-201", body="Synthetic test",
+            )
+        self.assertEqual(caught.exception.code, "provider_rejected_request")
+        action = self.ledger.connection.execute("SELECT status FROM actions").fetchone()
+        self.assertEqual(action["status"], "failed")
+        self.assertNotIn("private rejection details", str(caught.exception))
+        self.session.request.assert_called_once()
+
+    def test_local_payload_validation_failure_is_failed_not_unknown(self):
+        payload = {"repository": "invalid-repository", "title": "Follow up", "body": "Synthetic"}
+        approval = self.store.record_provider_approval(
+            case_id="CASE-201", requester_id=self.requester.subject,
+            approver_id=self.approver.subject, provider="github", operation="create_issue",
+            payload=payload, fingerprint=action_fingerprint("github", "create_issue", payload),
+        )
+        with self.assertRaisesRegex(ValueError, "owner/repository"):
+            create_github_followup(
+                store=self.store, approval_id=approval["approval_id"], actor=self.requester,
+                client=self.client, ledger=self.ledger, case_id="CASE-201",
+                repository="invalid-repository", title="Follow up", body="Synthetic",
+            )
+        action = self.ledger.connection.execute("SELECT status FROM actions").fetchone()
+        self.assertEqual(action["status"], "failed")
         self.session.request.assert_not_called()
 
 if __name__ == "__main__":
