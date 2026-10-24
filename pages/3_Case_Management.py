@@ -11,6 +11,7 @@ sys.path.insert(0,str(ROOT))
 from onboardops.ui_accessibility import accessibility_styles
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.case_access import visible_cases
+from onboardops.case_service import CaseService
 from onboardops.audit_view import describe_event
 from onboardops.case_export import build_case_export, render_case_export_json
 from onboardops.csv_safety import safe_csv_row
@@ -47,6 +48,7 @@ except AuthorizationError as exc:
 
 db_path=os.environ.get("ONBOARDOPS_CASE_DB",str(ROOT/"data"/"onboardops_cases.sqlite3"))
 store=CaseStore(db_path)
+service=CaseService(store, actor)
 st.info("Local demo stores synthetic cases in SQLite on this machine. Single-user demo only. Provider writes are disabled.")
 st.caption(f"Identity: {actor.subject} · Mode: {actor.mode} · Roles: {', '.join(sorted(actor.roles))}")
 def show_error(exc):
@@ -60,7 +62,8 @@ with st.expander("Portfolio demo helpers", expanded=False):
     st.caption("Optional sample records for demonstrations. These are synthetic fixtures, not employee records.")
     if st.button("Load synthetic sample cases", key="load_sample_cases"):
         try:
-            require_permission(actor, "cases:create")
+            if not actor.is_demo:
+                raise AuthorizationError("Synthetic fixture loading is available only in local demo mode.")
             created = seed_sample_cases(store)
             if created:
                 st.success(f"Added {created} synthetic sample case(s). Existing sample cases were left unchanged.")
@@ -73,7 +76,7 @@ with st.expander("Portfolio demo helpers", expanded=False):
 
 try:
     require_permission(actor,"cases:read")
-    cases=store.list_cases(limit=500)
+    cases=service.list_cases(limit=500)
 except Exception as exc:
     show_error(exc)
     cases=[]
@@ -150,7 +153,7 @@ with tab_list:
                            "Summary":c["summary"],"Updated":c["updated_at"],"Version":c["version"]}
                           for c in page_cases],use_container_width=True,hide_index=True)
             selected=st.selectbox("Open case",[c["case_id"] for c in page_cases])
-            case=store.get_case(selected)
+            case=service.get_case(selected)
         else:
             st.info("No cases match these filters. Clear the search or choose another status.")
             case=None
@@ -175,9 +178,9 @@ with tab_list:
                 if triage_submitted:
                     try:
                         require_permission(actor, "cases:transition")
-                        store.update_triage(
+                        service.update_triage(
                             case_id=selected, priority=priority_value, assigned_to=assignee_value,
-                            actor_id=actor.subject, expected_version=case["version"],
+                            expected_version=case["version"],
                         )
                         st.success("Priority and assignment saved.")
                         st.rerun()
@@ -189,8 +192,8 @@ with tab_list:
                     if st.button("Approve case", key=f"approve_{selected}"):
                         try:
                             require_permission(actor, "approvals:review")
-                            approved = store.approve_case(case_id=selected, approver_id=actor.subject,
-                                                          expected_version=case["version"])
+                            approved = service.approve_case(case_id=selected,
+                                                            expected_version=case["version"])
                             st.success(f"{approved['case_id']} approved.")
                             st.rerun()
                         except Exception as exc:
@@ -200,7 +203,7 @@ with tab_list:
                     if st.button("Save status change"):
                         try:
                             require_permission(actor,"cases:transition")
-                            store.transition(case_id=selected,target=target,actor_id=actor.subject,expected_version=case["version"])
+                            service.transition(case_id=selected,target=target,expected_version=case["version"])
                             st.success("Status saved.")
                             st.rerun()
                         except Exception as exc:
@@ -208,7 +211,7 @@ with tab_list:
                 else:
                     st.caption("This case is in a terminal state.")
             st.write("**Case history**")
-            events = store.list_events(selected)
+            events = service.list_events(selected)
             timeline = [describe_event(e) for e in events]
             st.dataframe([{"Event": e["event"], "Actor": e["actor"],
                            "From": e["from_status"], "To": e["to_status"],
@@ -240,7 +243,7 @@ with tab_create:
             payload=json.loads(payload_text or "{}")
             if not isinstance(payload,dict):
                 raise ValueError("Request payload must be a JSON object.")
-            saved=store.create_case(case_id=case_id,lifecycle=lifecycle,requester_id=actor.subject,
+            saved=service.create_case(case_id=case_id,lifecycle=lifecycle,
                                     summary=summary,request_data=payload)
             st.success(f"Saved {saved['case_id']} as a draft.")
             st.rerun()
