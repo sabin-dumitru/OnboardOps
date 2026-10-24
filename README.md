@@ -60,6 +60,20 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
+## Recruiter-friendly walkthrough
+
+For a short, repeatable demonstration, use synthetic data only:
+
+1. Start the app with Docker or the Python environment above.
+2. Open **Case management** and load the synthetic sample cases.
+3. Filter for cases waiting for approval; inspect the requester and status history, then demonstrate that the requester cannot approve their own case.
+4. Assign a technician and change priority on a sample case; show the versioned audit event.
+5. Open **Operations Report** to review workload distribution, oldest pending approvals, and active cases aged seven or more days.
+6. Export one case as a JSON handoff packet and export the approval queue as CSV.
+7. Run the offline integration demo from a terminal to show payload-bound approval, duplicate-action protection, and the local audit-chain check without contacting a provider.
+
+**Suggested interview framing:** explain one end-to-end flow, one safety invariant, one failure mode, and one known production limitation. For example, approvals bind to an exact payload; a POST timeout may still mean a provider accepted a request, so blind retries are unsafe. Be explicit that the UI uses synthetic local data and live writes are not enabled.
+
 ## Offline demo and tests
 
 No credentials or external service access are required:
@@ -109,10 +123,12 @@ Credentials are passed into adapter constructors by application code; they are n
 
 ## Roadmap
 
-1. Integrate adapters into persistent lifecycle cases with server-side authentication and RBAC.
-2. Add PostgreSQL and versioned migrations for team use.
-3. Add a transactional action queue/outbox and provider-specific reconciliation.
-4. Add an isolated, opt-in live integration test suite.
-5. Provide a synthetic-only hosted demo and Docker Compose environment.
+The next production-oriented milestones are deliberately separate from the current local demo:
+
+1. Replace the trusted-proxy seam with reviewed OIDC integration and enforce case-level authorisation in the service layer.
+2. Introduce versioned migrations and PostgreSQL only alongside a concrete multi-user deployment requirement.
+3. Add a durable transactional outbox and provider-specific reconciliation for ambiguous write outcomes.
+4. Add structured redacted logs, retention/backup policy, and restore tests.
+5. Add opt-in live contract tests against isolated provider test tenants; keep them out of ordinary CI.
 
 OnboardOps is a personal portfolio project. It is an integration and workflow prototype, not a production provisioning system.
