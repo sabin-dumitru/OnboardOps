@@ -1,4 +1,5 @@
 """Offline adapter contract tests. These tests never call provider services."""
+import json
 import unittest
 from unittest.mock import Mock
 import requests
@@ -96,12 +97,21 @@ class ProviderPayloadTests(unittest.TestCase):
 
     def test_oversized_success_response_is_rejected_before_json_parsing(self):
         session = Mock()
-        response = Mock(status_code=200, content=b"x" * (2 * 1024 * 1024 + 1))
+        response = Mock(status_code=200, content=b"")
+        consumed = []
+        def chunks():
+            for _ in range(40):
+                consumed.append(1)
+                yield b"x" * (64 * 1024)
+        response.iter_content.return_value = chunks()
         session.request.return_value = response
         with self.assertRaises(IntegrationError) as ctx:
             JsonApiClient("https://example.com", session=session).request("GET", "/api")
         self.assertEqual(ctx.exception.code, "response_too_large")
+        self.assertLess(len(consumed), 40)
         response.json.assert_not_called()
+        response.close.assert_called_once()
+        self.assertTrue(session.request.call_args.kwargs["stream"])
 
 if __name__ == "__main__":
     unittest.main()
@@ -110,7 +120,9 @@ if __name__ == "__main__":
 class LiveRequestContractTests(unittest.TestCase):
     """Mock the HTTP boundary to verify provider request contracts without network calls."""
     def _response(self, status, payload):
-        response = Mock(status_code=status, content=b"{}")
+        body = json.dumps(payload).encode("utf-8")
+        response = Mock(status_code=status, content=body)
+        response.iter_content.return_value = [body]
         response.json.return_value = payload
         return response
 
