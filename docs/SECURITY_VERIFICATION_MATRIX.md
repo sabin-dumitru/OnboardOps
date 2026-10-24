@@ -31,7 +31,7 @@ This is a practical mapping of selected themes, not a line-by-line ASVS verifica
 | Architecture and threat modeling | Architecture notes and threat model | Independent review of production trust boundaries and deployment architecture |
 | Authentication and access control | Auth module, role-matrix and integration-auth tests | OIDC/SSO, session security, case-level authorization, proxy deployment review |
 | Validation and business logic | Lifecycle transitions, version checks, strict JSON, approval expiry/revocation | Abuse/rate-limit controls and full service-layer authorization review |
-| Error handling and logging | Sanitized integration errors, local audit chain, metadata redaction | Central protected logging, alerting, retention and incident ownership |
+| Error handling and logging | Sanitized integration errors, local audit chain, metadata redaction, structured authorization-denial events with pseudonymous actor/resource references | Logs currently use the local Python logging destination; central protected logging, alerting, retention and incident ownership remain deployment work |
 | Data protection | Secret redaction, minimal exports, CSV formula neutralization | Data classification, retention/deletion policy, encryption and access controls appropriate to deployment |
 | Communication and configuration | HTTPS-only provider URLs by default, redirects disabled, Compose localhost binding | Production TLS termination, egress restrictions, secrets manager and deployment review |
 
