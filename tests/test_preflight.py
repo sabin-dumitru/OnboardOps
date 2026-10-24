@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -51,9 +52,8 @@ class PreflightTests(unittest.TestCase):
         self.assertFalse(by_name["Output directory"]["ok"])
 
 
-    @unittest.skipUnless(__import__("os").name == "posix", "POSIX permission bits are not portable to Windows")
+    @unittest.skipUnless(os.name == "posix", "POSIX permission bits are not portable to Windows")
     def test_preflight_warns_about_existing_group_readable_database(self):
-        import os
         database = self.root / "data" / "cases.sqlite3"
         database.write_text("synthetic placeholder", encoding="utf-8")
         database.chmod(0o644)
