@@ -223,5 +223,16 @@ class CaseStoreTests(unittest.TestCase):
         self.assertTrue(migrated["expires_at"])
         self.assertEqual(migrated["status"], "approved")
 
+    def test_camel_case_credentials_are_redacted(self):
+        case = self.store.create_case(
+            case_id="CASE-KEYS-1", lifecycle="onboarding", requester_id="alice",
+            summary="Secret-key conventions",
+            request_data={"apiKey": "never-store", "privateKey": "never-store-either",
+                          "department": "IT"},
+        )
+        self.assertEqual(case["request_data"]["apiKey"], "[REDACTED]")
+        self.assertEqual(case["request_data"]["privateKey"], "[REDACTED]")
+        self.assertEqual(case["request_data"]["department"], "IT")
+
 if __name__ == "__main__":
     unittest.main()
