@@ -30,7 +30,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
 .ops-subtitle {color: #a9bad0; margin-bottom: 1.1rem;}
 </style>
 <div class="ops-eyebrow">PLATFORM · CONNECTIVITY</div>
-<div class="ops-title">Integration Lab</div>
+<h1 class="ops-title">Integration Lab</h1>
 <div class="ops-subtitle">Provider readiness, read-only diagnostics, and safe action previews.</div>
 """, unsafe_allow_html=True)
 
