@@ -12,6 +12,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from onboardops.ui_accessibility import accessibility_styles
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.cases import CaseStore
 from onboardops.csv_safety import safe_csv_row
@@ -30,6 +31,7 @@ st.markdown("""
 <div class="ops-title">Operations report</div>
 <div class="ops-subtitle">A read-only snapshot of workload, approval waiting time, stale work, prioritisation, and aging cases.</div>
 """, unsafe_allow_html=True)
+st.markdown(accessibility_styles(), unsafe_allow_html=True)
 st.caption("Local records only · No provider calls · Counts are not SLA measurements")
 
 headers = {}

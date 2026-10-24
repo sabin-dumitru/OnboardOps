@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
+from onboardops.ui_accessibility import accessibility_styles
 from onboardops.integrations import (  # noqa: E402
     GitHubClient, IntegrationError, JiraClient, MicrosoftGraphClient,
     ServiceNowClient, SnipeITClient, WorkdayClient,
@@ -32,6 +33,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
 <div class="ops-title">Integration Lab</div>
 <div class="ops-subtitle">Provider readiness, read-only diagnostics, and safe action previews.</div>
 """, unsafe_allow_html=True)
+
+st.markdown(accessibility_styles(), unsafe_allow_html=True)
 
 st.warning(
     "This page is intended for local development. It can perform configured read-only API lookups, "

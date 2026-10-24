@@ -8,6 +8,7 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+from onboardops.ui_accessibility import accessibility_styles
 from onboardops.core import generate_checklist, load_templates, parse_request_file, render_inventory_csv, render_markdown, validate_request
 
 st.set_page_config(page_title="OnboardOps · IT onboarding", page_icon="🧭", layout="wide")
@@ -26,6 +27,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
 </style>
 <div class="hero"><h1>🧭 OnboardOps</h1><p>Turn a new-joiner request into a consistent technician checklist and equipment allocation record.</p></div>
 """, unsafe_allow_html=True)
+st.markdown(accessibility_styles(), unsafe_allow_html=True)
 st.caption("Local-first portfolio demo · Synthetic data only · No accounts, permissions, or devices are changed")
 st.info("Workflow: import or enter one request → validate it → review the tailored checklist → export Markdown and asset CSV. All generated actions are technician prompts, not provisioning.")
 
