@@ -18,6 +18,8 @@ This guide is for a live portfolio/recruiter demonstration. Use synthetic data o
 
 A demo-mode authentication warning from preflight is expected. Any FAIL result is not expected; fix it before presenting. Do not print or paste environment values into the terminal recording.
 
+Before presenting, use the [manual accessibility review checklist](PRESENTATION_ACCESSIBILITY_CHECKLIST.md). Do not describe accessibility as verified until the browser and assistive-technology checks have been run and recorded.
+
 ## Talk track
 
 ### 0:00–0:40 — Problem and scope
