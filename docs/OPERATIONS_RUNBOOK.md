@@ -36,6 +36,18 @@ python scripts/backup_cases.py --destination backups/cases-YYYY-MM-DD.sqlite3
 
 The source defaults to `ONBOARDOPS_CASE_DB` or `data/onboardops_cases.sqlite3`. The helper refuses to overwrite an existing destination unless `--overwrite` is explicit.
 
+For the supplied Docker Compose setup, the database lives in the named state volume, not the host's default `data/` path. Create the backup inside the container's mounted output volume, then copy it to the host:
+
+```sh
+mkdir -p backups
+docker compose exec onboardops python scripts/backup_cases.py \
+  --source /app/state/onboardops_cases.sqlite3 \
+  --destination /app/outputs/cases-YYYY-MM-DD.sqlite3
+docker compose cp onboardops:/app/outputs/cases-YYYY-MM-DD.sqlite3 ./backups/
+```
+
+Replace `YYYY-MM-DD` with the actual date before running. Keep the copied file private; case request details may contain employee information even after key-based redaction.
+
 To restore a local case database:
 
 1. Stop Streamlit or the Compose service.
