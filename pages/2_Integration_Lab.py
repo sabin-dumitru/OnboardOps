@@ -12,6 +12,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.integrations import (  # noqa: E402
     GitHubClient, IntegrationError, JiraClient, MicrosoftGraphClient,
     ServiceNowClient, SnipeITClient, WorkdayClient,
@@ -37,6 +38,22 @@ st.warning(
     "but it does not expose live writes from the UI. Provider write adapters are available in Python, "
     "yet the team identity/RBAC layer is not implemented. Do not expose a credentialed instance to a network."
 )
+
+headers = {}
+try:
+    headers = dict(st.context.headers)
+except Exception:
+    pass
+try:
+    integration_actor = resolve_actor(headers)
+    require_permission(integration_actor, "integrations:read", production_only=True)
+    live_lookup_allowed = True
+except AuthorizationError:
+    live_lookup_allowed = False
+    st.info(
+        "Live provider lookups are disabled for the local demo identity. "
+        "Use a reviewed trusted-proxy deployment with an authorised integration-reader role."
+    )
 
 
 def setting(name: str) -> str:
@@ -101,7 +118,7 @@ with left:
         st.subheader("Microsoft Graph · User lookup")
         st.caption("Requires application permissions and admin consent. Returns selected directory fields only.")
         graph_upn = st.text_input("User ID or user principal name", placeholder="synthetic.user@example.invalid")
-        if st.button("Look up user", disabled=not configured(*graph_vars), key="graph_user"):
+        if st.button("Look up user", disabled=not configured(*graph_vars) or not live_lookup_allowed, key="graph_user"):
             try:
                 client = MicrosoftGraphClient(*(setting(v) for v in graph_vars))
                 result = client.get_user(graph_upn)
@@ -130,7 +147,7 @@ with left:
     with st.container(border=True):
         st.subheader("ServiceNow · Incident lookup")
         correlation_id = st.text_input("Correlation ID", value="DEMO-CASE-001")
-        if st.button("Find incidents", disabled=not configured(*snow_vars), key="snow_lookup"):
+        if st.button("Find incidents", disabled=not configured(*snow_vars) or not live_lookup_allowed, key="snow_lookup"):
             try:
                 client = ServiceNowClient(setting(snow_vars[0]), setting(snow_vars[1]))
                 show_json(client.find_incidents_by_correlation_id(correlation_id))
@@ -141,7 +158,7 @@ with right:
     with st.container(border=True):
         st.subheader("Jira Cloud · Issue lookup")
         issue_key = st.text_input("Issue key", placeholder="DEMO-123")
-        if st.button("Look up issue", disabled=not configured(*jira_vars), key="jira_lookup"):
+        if st.button("Look up issue", disabled=not configured(*jira_vars) or not live_lookup_allowed, key="jira_lookup"):
             try:
                 client = JiraClient(*(setting(v) for v in jira_vars))
                 issue = client.get_issue(issue_key)
@@ -155,7 +172,7 @@ with right:
     with st.container(border=True):
         st.subheader("Snipe-IT · Asset search")
         asset_search = st.text_input("Asset tag, model or search term", placeholder="DEMO-LAPTOP")
-        if st.button("Search assets", disabled=not configured(*snipe_vars), key="snipe_search"):
+        if st.button("Search assets", disabled=not configured(*snipe_vars) or not live_lookup_allowed, key="snipe_search"):
             try:
                 client = SnipeITClient(setting(snipe_vars[0]), setting(snipe_vars[1]))
                 rows = client.search_hardware(asset_search, limit=50)
@@ -169,7 +186,7 @@ with right:
         st.subheader("Workday · Configured read endpoint")
         st.caption("The API root, endpoint schema and permissions must match your tenant.")
         workday_path = st.text_input("Relative endpoint path", value="/workers")
-        if st.button("Read Workday endpoint", disabled=not configured(*workday_vars), key="workday_read"):
+        if st.button("Read Workday endpoint", disabled=not configured(*workday_vars) or not live_lookup_allowed, key="workday_read"):
             try:
                 client = WorkdayClient(setting(workday_vars[0]), setting(workday_vars[1]))
                 result = client.get_workers(endpoint_path=workday_path)
