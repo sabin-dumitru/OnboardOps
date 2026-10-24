@@ -62,4 +62,21 @@ class WorkflowTests(unittest.TestCase):
         finally: ledger.close()
 
 
+    def test_action_fingerprint_rejects_non_standard_json_numbers(self):
+        with self.assertRaisesRegex(WorkflowError, "valid JSON-compatible"):
+            action_fingerprint("demo", "write", {"score": float("nan")})
+
+    def test_audit_metadata_rejects_non_standard_json_numbers(self):
+        ledger = ActionLedger()
+        try:
+            with self.assertRaisesRegex(WorkflowError, "valid JSON-compatible"):
+                ledger.append_audit(event_type="case.created", case_id="CASE-1",
+                                    actor_id="demo", metadata={"score": float("inf")})
+            self.assertEqual(
+                ledger.connection.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0],
+                0,
+            )
+        finally:
+            ledger.close()
+
 if __name__ == "__main__": unittest.main()
