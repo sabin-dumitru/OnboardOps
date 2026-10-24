@@ -51,10 +51,17 @@ def resolve_actor(headers: dict[str, str] | None = None, *, environ: dict[str, s
         raise AuthorizationError("No recognised OnboardOps role was supplied.")
     return Actor(subject, roles, "trusted_proxy")
 
+def has_permission(actor: Actor, permission: str, *, production_only: bool = False) -> bool:
+    """Return whether an actor has a permission; use require_permission at action sites."""
+    if production_only and actor.is_demo:
+        return False
+    return any(permission in _ROLE_PERMISSIONS.get(role, frozenset()) for role in actor.roles)
+
+
 def require_permission(actor: Actor, permission: str, *, production_only: bool = False) -> None:
     if production_only and actor.is_demo:
         raise AuthorizationError("This action is disabled in local demo mode.")
-    if not any(permission in _ROLE_PERMISSIONS.get(role, frozenset()) for role in actor.roles):
+    if not has_permission(actor, permission):
         raise AuthorizationError(f"Your assigned role does not permit {permission}.")
 
 
