@@ -2,6 +2,8 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
+from unittest import mock
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.demo_fixtures import SAMPLE_CASES, seed_sample_cases
@@ -286,6 +288,27 @@ class CaseStoreTests(unittest.TestCase):
         finally:
             store.close()
 
+    def test_initialization_failure_closes_database_connection(self):
+        broken_path = os.path.join(self.temp.name, "broken.sqlite3")
+        with open(broken_path, "w", encoding="utf-8") as database_file:
+            database_file.write("not a SQLite database")
+
+        connect = sqlite3.connect
+        connections = []
+
+        def track_connection(*args, **kwargs):
+            connection = connect(*args, **kwargs)
+            connections.append(connection)
+            return connection
+
+        with mock.patch("onboardops.cases.sqlite3.connect", side_effect=track_connection):
+            with self.assertRaises(sqlite3.DatabaseError):
+                CaseStore(broken_path)
+
+        self.assertEqual(len(connections), 1)
+        with self.assertRaises(sqlite3.ProgrammingError):
+            connections[0].execute("SELECT 1")
+
     def test_schema_version_is_recorded_and_future_version_fails_closed(self):
         self.assertEqual(
             self.store.connection.execute("PRAGMA user_version").fetchone()[0], 1,
@@ -293,11 +316,12 @@ class CaseStoreTests(unittest.TestCase):
         future_path = os.path.join(self.temp.name, "future-schema.sqlite3")
         future_store = CaseStore(future_path)
         future_store.close()
-        with sqlite3.connect(future_path) as connection:
+        with closing(sqlite3.connect(future_path)) as connection:
             connection.execute("PRAGMA user_version = 999")
+            connection.commit()
         with self.assertRaisesRegex(CaseStoreError, "newer than this application"):
             CaseStore(future_path)
-        with sqlite3.connect(future_path) as connection:
+        with closing(sqlite3.connect(future_path)) as connection:
             self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 999)
 
     def test_reopening_migrated_database_keeps_schema_version_and_data(self):
