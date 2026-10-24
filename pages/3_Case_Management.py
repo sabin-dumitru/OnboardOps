@@ -11,6 +11,7 @@ sys.path.insert(0,str(ROOT))
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.audit_view import describe_event
 from onboardops.case_export import build_case_export, render_case_export_json
+from onboardops.csv_safety import safe_csv_row
 from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.demo_fixtures import seed_sample_cases
 from onboardops.workflow import TRANSITIONS, WorkflowError
@@ -117,10 +118,10 @@ with tab_list:
             export_buffer = StringIO()
             writer = csv.DictWriter(export_buffer, fieldnames=["case_id", "lifecycle", "status", "priority", "assigned_to", "summary", "updated_at", "version"])
             writer.writeheader()
-            writer.writerows({
+            writer.writerows(safe_csv_row({
                 "case_id": c["case_id"], "lifecycle": c["lifecycle"], "status": c["status"],
                 "priority": c.get("priority", "normal"), "assigned_to": c.get("assigned_to") or "", "summary": c["summary"], "updated_at": c["updated_at"], "version": c["version"]
-            } for c in visible_cases)
+            }) for c in visible_cases)
             st.download_button("Export filtered cases (.csv)", export_buffer.getvalue(),
                                file_name="onboardops_cases.csv", mime="text/csv")
         if visible_cases:
