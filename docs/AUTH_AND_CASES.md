@@ -23,7 +23,7 @@ Persisted provider approvals expire after 15 minutes and can be revoked before u
 
 ## Storage boundary
 
-New SQLite database files are created with owner-only permissions on POSIX systems, and newly created parent directories use a private mode. The preflight warns if an existing database file is accessible to group/others; existing file permissions are not changed automatically. On POSIX, restrict an existing demo database with chmod 600 after confirming the intended file. SQLite is single-machine local persistence, not a shared multi-user database. Team deployment needs a managed database, migrations, backups, concurrency tests, retention controls and monitoring. The event history is application history, not a tamper-proof enterprise audit log.
+New SQLite database files are created with owner-only permissions on POSIX systems, and newly created parent directories use a private mode. The preflight warns if an existing database file is accessible to group/others; existing file permissions are not changed automatically. On POSIX, restrict an existing demo database with chmod 600 after confirming the intended file. SQLite records a schema version in PRAGMA user_version and refuses to open a database created by a newer application schema. Current compatibility migrations remain idempotent; future schema changes must add a migration and advance the version only after it succeeds. SQLite is single-machine local persistence, not a shared multi-user database. Team deployment needs a managed database, migrations, backups, concurrency tests, retention controls and monitoring. The event history is application history, not a tamper-proof enterprise audit log.
 
 ## Backup and restore (local demo)
 
