@@ -44,11 +44,9 @@ class CaseService:
                     for case in self._store.list_cases(limit=limit, status="pending_approval")
                 })
             # Preserve the store's newest-first ordering across the union of role scopes.
-            candidates = sorted(
-                scoped.values(),
-                key=lambda case: (case["updated_at"], case["case_id"]),
-                reverse=True,
-            )[:limit]
+            ordered = sorted(scoped.values(), key=lambda case: case["case_id"])
+            ordered.sort(key=lambda case: case["updated_at"], reverse=True)
+            candidates = ordered[:limit]
         # Retain the policy filter as defense in depth if a query scope is broadened later.
         return visible_cases(self._actor, candidates)
 
