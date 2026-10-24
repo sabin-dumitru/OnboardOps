@@ -296,7 +296,7 @@ class CaseStore:
                 self.connection.execute(
                     "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
                     (row["case_id"], "provider_action.approval_expired", row["approver_id"], None, None,
-                     json.dumps({"approval_id": approval_id, "provider": row["provider"], "operation": row["operation"]}, sort_keys=True), now),
+                     json.dumps({"approval_id": approval_id, "provider": row["provider"], "operation": row["operation"]}, sort_keys=True, allow_nan=False), now),
                 )
                 self.connection.commit()
             else:
