@@ -27,7 +27,7 @@ st.markdown("""
 </style>
 <div class="ops-eyebrow">WORKSPACE · REPORTING</div>
 <div class="ops-title">Operations report</div>
-<div class="ops-subtitle">A read-only snapshot of workload, prioritisation, and aging cases.</div>
+<div class="ops-subtitle">A read-only snapshot of workload, approval waiting time, prioritisation, and aging cases.</div>
 """, unsafe_allow_html=True)
 st.caption("Local records only · No provider calls · Counts are not SLA measurements")
 
@@ -77,6 +77,32 @@ with right:
     st.write(f"**{report['unassigned_active']}** active cases have no assignee.")
     st.write(f"**{len(report['aging_cases'])}** active cases are at least seven days old.")
     st.caption("Age is measured from case creation in UTC. This is a triage aid, not an SLA or breach calculation.")
+
+st.subheader("Approval queue · oldest first")
+if report["approval_queue"]:
+    st.dataframe([{
+        "Case ID": c["case_id"], "Waiting (hours)": c["age_hours"],
+        "Lifecycle": c["lifecycle"], "Priority": c["priority"].title(),
+        "Assignee": c["assigned_to"] or "Unassigned", "Created (UTC)": c["created_at"],
+    } for c in report["approval_queue"]], use_container_width=True, hide_index=True)
+    approval_export = StringIO()
+    approval_writer = csv.DictWriter(approval_export, fieldnames=[
+        "case_id", "waiting_hours", "lifecycle", "priority", "assigned_to", "created_at"
+    ])
+    approval_writer.writeheader()
+    approval_writer.writerows({
+        "case_id": c["case_id"], "waiting_hours": c["age_hours"],
+        "lifecycle": c["lifecycle"], "priority": c["priority"],
+        "assigned_to": c["assigned_to"], "created_at": c["created_at"],
+    } for c in report["approval_queue"])
+    st.download_button(
+        "Export approval queue (.csv)", approval_export.getvalue(),
+        file_name="onboardops_approval_queue.csv", mime="text/csv",
+    )
+else:
+    st.success("No cases are waiting for approval.")
+
+st.caption("Waiting time is measured from case creation in UTC. It is a prioritisation signal, not an SLA target.")
 
 st.subheader("Aging active cases · 7+ days")
 if report["aging_cases"]:

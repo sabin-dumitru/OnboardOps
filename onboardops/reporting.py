@@ -48,6 +48,24 @@ def build_operations_report(cases: Iterable[dict[str, Any]], *, now: datetime | 
                          "assigned_to": str(case.get("assigned_to") or ""),
                          "age_days": round(age_days, 1), "created_at": created.isoformat()})
 
+    approval_queue = []
+    for case in items:
+        if case.get("status") != "pending_approval":
+            continue
+        created = _parse_timestamp(case.get("created_at"))
+        if created is None:
+            continue
+        age_hours = max(0, (current - created).total_seconds() / 3600)
+        approval_queue.append({
+            "case_id": str(case.get("case_id", "")),
+            "lifecycle": str(case.get("lifecycle", "unknown")),
+            "priority": str(case.get("priority", "normal")),
+            "assigned_to": str(case.get("assigned_to") or ""),
+            "age_hours": round(age_hours, 1),
+            "created_at": created.isoformat(),
+        })
+    approval_queue.sort(key=lambda c: (-c["age_hours"], c["case_id"]))
+
     return {
         "total": len(items),
         "active": len(active),
@@ -58,4 +76,5 @@ def build_operations_report(cases: Iterable[dict[str, Any]], *, now: datetime | 
         "lifecycle_counts": dict(sorted(lifecycle_counts.items())),
         "priority_counts": {priority: priority_counts.get(priority, 0) for priority in PRIORITY_ORDER},
         "aging_cases": sorted(aged, key=lambda c: (-c["age_days"], c["case_id"])),
+        "approval_queue": approval_queue,
     }
