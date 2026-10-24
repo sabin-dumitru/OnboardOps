@@ -54,10 +54,15 @@ class CaseStore:
                 os.close(descriptor)
         self.connection = sqlite3.connect(self.database_path, timeout=10)
         try:
+            self._initialize_connection()
+        except BaseException:
+            self.connection.close()
+            raise
+
+    def _initialize_connection(self) -> None:
             self.connection.row_factory = sqlite3.Row
             current_schema = int(self.connection.execute("PRAGMA user_version").fetchone()[0])
             if current_schema > _SCHEMA_VERSION:
-                self.connection.close()
                 raise CaseStoreError(
                     "Database schema is newer than this application supports; upgrade the app before opening it."
                 )
@@ -116,9 +121,6 @@ class CaseStore:
             # migrations must increment _SCHEMA_VERSION and run before advancing it.
             self.connection.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
             self.connection.commit()
-        except BaseException:
-            self.connection.close()
-            raise
 
     def close(self) -> None:
         self.connection.close()
