@@ -45,6 +45,8 @@ class WorkflowCase:
 
 
 def action_fingerprint(provider: str, operation: str, payload: dict[str, Any]) -> str:
+    if not isinstance(payload, dict):
+        raise WorkflowError("Action payload must be a JSON object.")
     try:
         canonical = json.dumps(
             {"provider": provider, "operation": operation, "payload": payload},
@@ -134,7 +136,17 @@ class ActionLedger:
                      metadata: dict[str, Any] | None = None) -> str:
         if not event_type.strip() or not case_id.strip() or not actor_id.strip():
             raise WorkflowError("Audit event type, case ID and actor ID are required.")
-        safe = json.dumps(self._safe_metadata(metadata or {}), sort_keys=True, separators=(",", ":"), allow_nan=False)
+        if metadata is not None and not isinstance(metadata, dict):
+            raise WorkflowError("Audit metadata must be a JSON object.")
+        try:
+            safe = json.dumps(
+                self._safe_metadata(metadata or {}),
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise WorkflowError("Audit metadata must be valid JSON-compatible data.") from exc
         prior = self.connection.execute("SELECT event_hash FROM audit_events ORDER BY sequence DESC LIMIT 1").fetchone()
         previous_hash = prior["event_hash"] if prior else "GENESIS"
         occurred = datetime.now(timezone.utc).isoformat()
