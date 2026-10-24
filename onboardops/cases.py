@@ -243,7 +243,7 @@ class CaseStore:
                   requester_id TEXT NOT NULL, approver_id TEXT NOT NULL,
                   provider TEXT NOT NULL, operation TEXT NOT NULL,
                   payload_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
-                  approved_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
+                  approved_at TEXT NOT NULL, expires_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
                 )
             """)
             cur = self.connection.execute(
