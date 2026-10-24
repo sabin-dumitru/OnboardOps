@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from onboardops.sanitization import redact_sensitive_fields
+from onboardops.sqlite_utils import prepare_sqlite_path
 
 
 class WorkflowError(ValueError):
@@ -84,7 +85,7 @@ def verify_approval(approval: Approval, *, provider: str, operation: str,
 class ActionLedger:
     """SQLite single-process ledger; not a multi-user or tamper-proof enterprise store."""
     def __init__(self, database_path: str | Path = ":memory:") -> None:
-        self.connection = sqlite3.connect(str(database_path), timeout=10, isolation_level=None)
+        self.connection = sqlite3.connect(prepare_sqlite_path(database_path), timeout=10, isolation_level=None)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys=ON")
         self.connection.executescript("""
