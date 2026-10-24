@@ -129,3 +129,5 @@ OnboardOps is a personal portfolio project. It is an integration and workflow pr
 See the [presentation and company-readiness plan](docs/PRESENTATION_READINESS_PLAN.md) for the risk-first improvement sequence, and the [security verification matrix](docs/SECURITY_VERIFICATION_MATRIX.md) for implementation evidence and remaining gaps.
 
 For a repeatable live walkthrough, use the [five-minute presentation script](docs/PRESENTATION_SCRIPT.md).
+
+The presentation pack also includes a [9-slide outline](docs/PRESENTATION_OUTLINE.md), [technical talking points and Q&A](docs/PRESENTATION_QA.md), and a [page-specific screenshot checklist](docs/PRESENTATION_SCREENSHOT_CHECKLIST.md). Before presenting, verify the current commit locally and follow the [manual accessibility review checklist](docs/PRESENTATION_ACCESSIBILITY_CHECKLIST.md). These materials are plans and prompts; they do not imply the demo or accessibility checks have been run.
