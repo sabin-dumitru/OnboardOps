@@ -56,6 +56,45 @@ class CaseStoreTests(unittest.TestCase):
             self.assertTrue(cases[case_id]["request_data"]["synthetic"])
             self.assertTrue(cases[case_id]["request_data"]["employee_id"].startswith("DEMO-"))
 
+    def test_triage_updates_are_validated_versioned_and_audited(self):
+        self.store.create_case(case_id="CASE-TRIAGE-1", lifecycle="onboarding",
+                               requester_id="alice", summary="Synthetic triage test")
+        case = self.store.get_case("CASE-TRIAGE-1")
+        self.assertEqual(case["priority"], "normal")
+        self.assertIsNone(case["assigned_to"])
+        updated = self.store.update_triage(
+            case_id="CASE-TRIAGE-1", priority="urgent", assigned_to="tech@example.invalid",
+            actor_id="dispatcher", expected_version=case["version"],
+        )
+        self.assertEqual(updated["priority"], "urgent")
+        self.assertEqual(updated["assigned_to"], "tech@example.invalid")
+        event = self.store.list_events("CASE-TRIAGE-1")[-1]
+        self.assertEqual(event["event_type"], "case.triage_updated")
+        self.assertEqual(event["actor_id"], "dispatcher")
+        self.assertEqual(event["metadata"]["priority_from"], "normal")
+        with self.assertRaises(CaseStoreError):
+            self.store.update_triage(
+                case_id="CASE-TRIAGE-1", priority="critical", assigned_to=None,
+                actor_id="dispatcher",
+            )
+        with self.assertRaises(CaseStoreError):
+            self.store.update_triage(
+                case_id="CASE-TRIAGE-1", priority="low", assigned_to=None,
+                actor_id="dispatcher", expected_version=case["version"],
+            )
+
+    def test_triage_schema_migrates_existing_database(self):
+        self.store.create_case(case_id="CASE-MIGRATE-1", lifecycle="onboarding",
+                               requester_id="alice", summary="Existing case")
+        self.store.connection.execute("ALTER TABLE cases DROP COLUMN priority")
+        self.store.connection.execute("ALTER TABLE cases DROP COLUMN assigned_to")
+        self.store.connection.commit()
+        self.store.close()
+        self.store = CaseStore(self.path)
+        case = self.store.get_case("CASE-MIGRATE-1")
+        self.assertEqual(case["priority"], "normal")
+        self.assertIsNone(case["assigned_to"])
+
     def test_case_persists_and_history_is_recorded(self):
         self.store.create_case(case_id="CASE-100",lifecycle="onboarding",requester_id="alice",summary="Synthetic onboarding",request_data={"employee_id":"DEMO-100"})
         self.store.transition(case_id="CASE-100",target="pending_approval",actor_id="alice",expected_version=1)
