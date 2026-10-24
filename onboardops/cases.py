@@ -10,6 +10,7 @@ from onboardops.workflow import TRANSITIONS, WorkflowError
 
 _CASE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
 _LIFECYCLES = {"onboarding", "offboarding", "transfer", "change"}
+_MAX_REQUEST_DATA_BYTES = 64 * 1024
 
 class CaseStoreError(ValueError):
     pass
@@ -88,8 +89,15 @@ class CaseStore:
             raise CaseStoreError("A valid requester identity is required.")
         if not summary or len(summary) > 200:
             raise CaseStoreError("Summary must contain 1–200 characters.")
-        safe_request = self._safe_json(request_data or {})
-        request_json = json.dumps(safe_request, sort_keys=True, ensure_ascii=False)
+        if request_data is not None and not isinstance(request_data, dict):
+            raise CaseStoreError("Request data must be a JSON object.")
+        try:
+            safe_request = self._safe_json(request_data or {})
+            request_json = json.dumps(safe_request, sort_keys=True, ensure_ascii=False)
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise CaseStoreError("Request data must be valid JSON-compatible data.") from exc
+        if len(request_json.encode("utf-8")) > _MAX_REQUEST_DATA_BYTES:
+            raise CaseStoreError("Request data exceeds the 64 KiB limit.")
         now = _now()
         try:
             self.connection.execute("BEGIN IMMEDIATE")
