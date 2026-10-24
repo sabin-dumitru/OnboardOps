@@ -15,6 +15,8 @@ This is the simplest cross-platform route if Docker Desktop (Windows/macOS) or D
 
 Stop the app with `Ctrl+C`; use `docker compose down` to stop and remove the container. To permanently erase the saved demo case database and generated files too, run `docker compose down --volumes`. Docker-managed named volumes preserve local case records and generated files across container restarts. These volumes stay on your computer and do not require host-folder write permissions.
 
+The container runs as a non-root user with a read-only root filesystem, dropped Linux capabilities, and `no-new-privileges`; only the named state/output volumes and temporary filesystems are writable. The Compose configuration is validated in CI.
+
 The service binds only to `127.0.0.1` on the host. Do not change this to a public interface or expose the app to a network: the default identity is a local demo identity and is not suitable for shared or production access. Use synthetic data only.
 
 To run the checks without Docker, follow the README quick start and test commands.

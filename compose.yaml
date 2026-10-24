@@ -1,11 +1,21 @@
 services:
   onboardops:
     build: .
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /home/appuser/.streamlit:rw,noexec,nosuid,size=16m
     ports:
       - "127.0.0.1:8501:8501"
     environment:
       ONBOARDOPS_AUTH_MODE: demo
       ONBOARDOPS_CASE_DB: /app/state/onboardops_cases.sqlite3
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
     volumes:
       - onboardops-state:/app/state
       - onboardops-outputs:/app/outputs
