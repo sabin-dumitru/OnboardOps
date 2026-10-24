@@ -163,7 +163,7 @@ class ActionLedger:
             fields = {"occurred_at": row["occurred_at"], "event_type": row["event_type"],
                       "case_id": row["case_id"], "actor_id": row["actor_id"],
                       "metadata_json": row["metadata_json"], "previous_hash": previous_hash}
-            expected = hashlib.sha256(json.dumps(fields, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            expected = hashlib.sha256(json.dumps(fields, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
             if row["previous_hash"] != previous_hash or row["event_hash"] != expected:
                 return False
             previous_hash = row["event_hash"]
