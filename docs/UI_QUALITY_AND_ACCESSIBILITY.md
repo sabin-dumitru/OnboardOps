@@ -14,6 +14,7 @@ This is an implementation checklist for the dark navy operations-console interfa
 
 - Every input has a persistent visible label; do not rely on placeholders as labels.
 - Use Streamlit's native buttons, forms, select boxes, tabs, and dataframes for keyboard support.
+- Shared CSS adds a high-visibility `:focus-visible` outline, a forced-colors fallback, and reduced-motion overrides on the main page, case management, operations report, and Integration Lab. These are implementation aids, not proof of WCAG conformance.
 - Keep the logical order of controls aligned with the visual order.
 - Use descriptive action names such as “Save status change” instead of vague labels such as “Go” or “OK”.
 - Ensure errors and success feedback are written as text and are not conveyed only through colour.
