@@ -19,7 +19,7 @@ This is an authentication-proxy integration seam, not a bundled OIDC provider. T
 
 `onboardops/provider_workflow.py` ties together role checking, separate-actor approval bound to the exact repository/title/body, the GitHub REST adapter, a local idempotency ledger and an audit event. Automated tests mock the HTTP boundary and verify the outbound request and recorded outcome. This proves the local workflow contract only; it does not prove live GitHub token scopes, repository policy or a successful real issue creation.
 
-The UI does not expose live provider writes. Do not enable live writes until an isolated test repository, trusted identity proxy, persistent approval records, server-side authorisation and provider reconciliation have been verified. A timed-out POST is recorded as unknown; reconcile before retrying.
+Persisted provider approvals expire after 15 minutes and can be revoked before use; expired approvals are rejected and recorded in case history. The UI does not expose live provider writes. Do not enable live writes until an isolated test repository, trusted identity proxy, persistent approval records, server-side authorisation and provider reconciliation have been verified. A timed-out POST is recorded as unknown; reconcile before retrying.
 
 ## Storage boundary
 
