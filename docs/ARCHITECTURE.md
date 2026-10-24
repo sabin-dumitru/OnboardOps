@@ -72,3 +72,8 @@ The Operations Report page aggregates local case metadata into status, lifecycle
 ## Case activity timeline and authorization tests
 
 The case history uses an allow-listed event formatter to show familiar labels and known status/triage changes without dumping arbitrary event metadata into the UI. Timeline rows are newest-first; the underlying event store remains unchanged. Authorization tests exercise the role-permission matrix, demo-mode provider-write denial, malformed proxy subjects, unknown roles and untrusted proxy configuration. These tests validate the application-level boundary, not the security of an external reverse proxy or deployment.
+
+
+## Portable case export packets
+
+Case Management can export the selected case as a versioned JSON packet for handoff, review, or reproducible debugging. The pure export builder includes the operational case fields and already-sanitised request data, plus a newest-first human-readable history produced by the audit event allow-list. It deliberately excludes arbitrary raw event metadata and unrelated database fields. The export schema is versioned so future format changes can be documented and tested. Exports can still contain case summaries, requester identifiers, and request data; use synthetic records for portfolio demos and handle any authorised real-data export according to local policy.
