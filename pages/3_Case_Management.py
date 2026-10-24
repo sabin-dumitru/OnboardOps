@@ -193,7 +193,7 @@ with tab_list:
                            "From": e["from_status"], "To": e["to_status"],
                            "At (UTC)": e["occurred_at"], "Details": e["details"]}
                           for e in reversed(timeline)], use_container_width=True, hide_index=True)
-            st.caption(f"{len(events)} recorded event(s), newest first. Details are allow-listed to avoid exposing arbitrary event metadata.")
+            st.caption(f"Showing the latest {len(events)} event(s), newest first. History is capped at 200 events; details are allow-listed to avoid exposing arbitrary event metadata.")
             export_packet = build_case_export(case, events)
             st.download_button(
                 "Export case packet (.json)",
