@@ -1,4 +1,8 @@
+import os
+import stat
+import tempfile
 import unittest
+from pathlib import Path
 from onboardops.workflow import (ActionLedger, DuplicateActionError, WorkflowCase, WorkflowError,
                                  action_fingerprint, approve_action, verify_approval)
 
@@ -78,5 +82,19 @@ class WorkflowTests(unittest.TestCase):
             )
         finally:
             ledger.close()
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission bits are not portable to Windows")
+    def test_persistent_action_ledger_uses_private_sqlite_path_defaults(self):
+        with tempfile.TemporaryDirectory() as temp:
+            database = Path(temp) / "private" / "nested" / "actions.sqlite3"
+            ledger = ActionLedger(database)
+            try:
+                ledger.append_audit(event_type="case.created", case_id="CASE-1", actor_id="demo")
+                self.assertTrue(ledger.verify_audit_chain())
+            finally:
+                ledger.close()
+            self.assertEqual(stat.S_IMODE(database.stat().st_mode) & 0o077, 0)
+            self.assertEqual(stat.S_IMODE(database.parent.stat().st_mode) & 0o077, 0)
+            self.assertEqual(stat.S_IMODE(database.parent.parent.stat().st_mode) & 0o077, 0)
 
 if __name__ == "__main__": unittest.main()
