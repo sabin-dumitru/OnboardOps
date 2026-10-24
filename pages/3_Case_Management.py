@@ -9,6 +9,7 @@ import streamlit as st
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
+from onboardops.audit_view import describe_event
 from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.demo_fixtures import seed_sample_cases
 from onboardops.workflow import TRANSITIONS, WorkflowError
@@ -186,11 +187,12 @@ with tab_list:
                     st.caption("This case is in a terminal state.")
             st.write("**Case history**")
             events = store.list_events(selected)
-            st.dataframe([{"Event": e["event_type"], "Actor": e["actor_id"],
-                           "From": e["from_status"] or "—", "To": e["to_status"] or "—",
-                           "At (UTC)": e["occurred_at"], "Details": json.dumps(e["metadata"], sort_keys=True)}
-                          for e in events], use_container_width=True, hide_index=True)
-            st.caption(f"{len(events)} recorded event(s). Timestamps are stored in UTC.")
+            timeline = [describe_event(e) for e in events]
+            st.dataframe([{"Event": e["event"], "Actor": e["actor"],
+                           "From": e["from_status"], "To": e["to_status"],
+                           "At (UTC)": e["occurred_at"], "Details": e["details"]}
+                          for e in reversed(timeline)], use_container_width=True, hide_index=True)
+            st.caption(f"{len(events)} recorded event(s), newest first. Details are allow-listed to avoid exposing arbitrary event metadata.")
     else:
         st.info("No saved cases yet. Create one in the next tab.")
 
