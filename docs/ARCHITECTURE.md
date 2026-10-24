@@ -77,3 +77,8 @@ The case history uses an allow-listed event formatter to show familiar labels an
 ## Portable case export packets
 
 Case Management can export the selected case as a versioned JSON packet for handoff, review, or reproducible debugging. The pure export builder includes the operational case fields and already-sanitised request data, plus a newest-first human-readable history produced by the audit event allow-list. It deliberately excludes arbitrary raw event metadata and unrelated database fields. The export schema is versioned so future format changes can be documented and tested. Exports can still contain case summaries, requester identifiers, and request data; use synthetic records for portfolio demos and handle any authorised real-data export according to local policy.
+
+
+## Approval queue aging
+
+The read-only Operations Report includes a pending-approval queue ordered by longest wait first. It calculates elapsed hours from case creation using UTC timestamps, skips malformed timestamps, and emits only operational fields rather than request payloads. Waiting time is a triage signal, not an SLA or breach calculation; approval policy and service targets are not configured by this prototype.
