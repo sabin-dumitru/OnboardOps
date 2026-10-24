@@ -36,3 +36,22 @@ The SQLite ledger is a local single-process foundation. Team use needs PostgreSQ
 - Safety tests for dry-run defaults, explicit approval, redirect rejection and secret-safe errors.
 - Offline demo using synthetic IDs and no external network calls.
 - Future opt-in live tests, isolated from normal CI and dedicated test tenants.
+
+
+## Case dashboard and demo fixtures
+
+The Case Management page supports status and lifecycle filters, case-ID/summary search, CSV export of the filtered view, and event history with UTC timestamps and metadata. Synthetic fixture generation lives in `onboardops/demo_fixtures.py`, separate from presentation code, so its lifecycle behavior can be tested without launching Streamlit.
+
+The fixture seeder is idempotent by case ID: existing fixture records are not reset. Automated tests assert the expected four lifecycle states and repeat-run behavior. The CSV export contains case metadata only; it is not intended as a production reporting or access-control boundary.
+
+## Future production architecture
+
+Keep the next steps in this order:
+
+1. **Authentication and authorisation:** integrate a real OIDC-backed identity boundary, enforce role and case-ownership checks server-side, and test direct API/service calls rather than relying on UI visibility.
+2. **Persistence:** add versioned database migrations and a PostgreSQL implementation behind a storage interface only when multi-user deployment is a real requirement.
+3. **Provider execution:** add an explicit action queue/outbox, durable idempotency keys, per-provider reconciliation, and observable outcomes for ambiguous POST timeouts.
+4. **Operations:** add structured, redacted logs, health checks, backup/restore tests, retention rules and monitoring.
+5. **Live integration tests:** keep them opt-in, isolated to dedicated test tenants and separate from ordinary CI.
+
+Do not combine these into one large refactor. Each boundary should have a small reviewable change and a test strategy before live execution is considered.
