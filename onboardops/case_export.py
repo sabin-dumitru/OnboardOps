@@ -39,4 +39,4 @@ def build_case_export(
 
 def render_case_export_json(packet: dict[str, Any]) -> str:
     """Render an export packet as deterministic, human-readable JSON."""
-    return json.dumps(packet, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    return json.dumps(packet, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
