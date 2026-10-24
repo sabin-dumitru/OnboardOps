@@ -19,6 +19,7 @@ class GitHubWorkflowTests(unittest.TestCase):
         self.ledger=ActionLedger()
         self.session=Mock()
         response=Mock(status_code=201,content=b'{"number":17,"html_url":"https://github.com/example/demo/issues/17"}')
+        response.iter_content.return_value = [response.content]
         response.json.return_value={"number":17,"html_url":"https://github.com/example/demo/issues/17"}
         self.session.request.return_value=response
         self.client=GitHubClient("fake-token",session=self.session)
