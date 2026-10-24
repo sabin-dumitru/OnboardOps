@@ -82,3 +82,8 @@ Case Management can export the selected case as a versioned JSON packet for hand
 ## Approval queue aging
 
 The read-only Operations Report includes a pending-approval queue ordered by longest wait first. It calculates elapsed hours from case creation using UTC timestamps, skips malformed timestamps, and emits only operational fields rather than request payloads. Waiting time is a triage signal, not an SLA or breach calculation; approval policy and service targets are not configured by this prototype.
+
+
+## Stale active work signals
+
+Operations reporting also surfaces active cases whose last update is at least three days old, ordered by longest idle time first. This complements the seven-day creation-age view: a recently created case can become stale, while an old case may still be actively worked. The report includes only operational fields and offers a CSV export. The three-day cutoff is an explicit product heuristic, not an SLA; a future deployment should make thresholds configurable and align them with service policy.
