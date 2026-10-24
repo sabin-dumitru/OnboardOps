@@ -1,20 +1,33 @@
-# Five-minute OnboardOps presentation script
+# Six-minute OnboardOps presentation script
 
 This guide is for a live portfolio/recruiter demonstration. Use synthetic data only. The local demo identity cannot perform live provider lookups or provider writes.
 
 ## Before the presentation
 
 1. Start Docker Desktop/Engine.
-2. From the repository root, run:
+2. From the repository root, validate the Compose file and start the app:
 
    ```sh
+   docker compose config --quiet
    docker compose up -d --build
-   curl --fail --silent http://127.0.0.1:8501/_stcore/health
    docker compose exec -T onboardops python scripts/preflight.py
    ```
 
-3. Open http://127.0.0.1:8501 and keep a terminal available for the offline integration demo.
-4. In Case management, click **Load synthetic sample cases**. It is additive and will not reset existing sample history. For a fresh demo, use the narrowly scoped reset procedure in the Docker demo guide before loading fixtures.
+3. Verify the health endpoint. In Windows PowerShell, run:
+
+   ```powershell
+   Invoke-RestMethod -Uri http://127.0.0.1:8501/_stcore/health
+   ```
+
+   On macOS/Linux, run:
+
+   ```sh
+   curl --fail --silent http://127.0.0.1:8501/_stcore/health
+   ```
+
+   The endpoint should return a successful response (normally `ok`). A demo-mode authentication warning from preflight is expected; a FAIL result is not.
+4. Open http://127.0.0.1:8501 and keep a terminal available for the offline integration demo.
+5. In Case management, click **Load synthetic sample cases**. This is additive and will not reset existing sample history. For a fresh demo, use the narrowly scoped reset procedure in the Docker demo guide before loading fixtures.
 
 A demo-mode authentication warning from preflight is expected. Any FAIL result is not expected; fix it before presenting. Do not print or paste environment values into the terminal recording.
 
@@ -28,7 +41,7 @@ Before presenting, use the [manual accessibility review checklist](PRESENTATION_
 
 Point out the navigation and local-first/demo boundary. Avoid claiming the application is production-ready or certified.
 
-### 0:40–2:15 — Case management
+### 0:40–2:10 — Case management
 
 1. Open **Case management** and load synthetic sample cases.
 2. Show the different lifecycle states and use status/lifecycle/priority filters.
@@ -38,7 +51,7 @@ Point out the navigation and local-first/demo boundary. Avoid claiming the appli
 
 **Say:** “The important design decision is that the lifecycle and authorization rules live in the Python service/store layer; a hidden button is not the security boundary.”
 
-### 2:15–3:00 — Operations report
+### 2:10–3:00 — Operations report
 
 Open **Operations Report** and point out status/lifecycle/priority distributions, active and unassigned work, approval waiting time, and stale-work signals.
 
@@ -70,6 +83,10 @@ If time permits, show:
 - GitHub Actions test matrix, Compose runtime smoke test, and CodeQL workflow.
 
 **Say:** “The project distinguishes implementation from evidence. CI checks Python behavior, the container's health endpoint, mounted database writes and persistence across restart. It does not replace an OIDC review, a production database, live provider tests, or a browser accessibility audit.”
+
+### 5:00–6:00 — Q&A and next steps
+
+Use the [technical talking points and likely Q&A](PRESENTATION_QA.md) to explain one remaining production boundary and the next engineering milestone. If asked whether the project is production-ready, live-provider-tested, or accessibility-certified, answer no and distinguish implemented code from evidence not yet collected.
 
 ## If something goes wrong
 
