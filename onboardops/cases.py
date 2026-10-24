@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from onboardops.workflow import TRANSITIONS, WorkflowError
@@ -11,6 +11,7 @@ from onboardops.workflow import TRANSITIONS, WorkflowError
 _CASE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
 _LIFECYCLES = {"onboarding", "offboarding", "transfer", "change"}
 _MAX_REQUEST_DATA_BYTES = 64 * 1024
+_PROVIDER_APPROVAL_TTL = timedelta(minutes=15)
 
 class CaseStoreError(ValueError):
     pass
@@ -52,7 +53,7 @@ class CaseStore:
           requester_id TEXT NOT NULL, approver_id TEXT NOT NULL,
           provider TEXT NOT NULL, operation TEXT NOT NULL,
           payload_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
-          approved_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
+          approved_at TEXT NOT NULL, expires_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
         );
         """)
         # Backward-compatible migrations for databases created by earlier demos.
@@ -61,6 +62,22 @@ class CaseStore:
             self.connection.execute("ALTER TABLE cases ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'")
         if "assigned_to" not in existing_columns:
             self.connection.execute("ALTER TABLE cases ADD COLUMN assigned_to TEXT")
+        approval_columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(provider_approvals)")}
+        if "expires_at" not in approval_columns:
+            self.connection.execute("ALTER TABLE provider_approvals ADD COLUMN expires_at TEXT")
+            rows = self.connection.execute("SELECT approval_id, approved_at FROM provider_approvals").fetchall()
+            for approval in rows:
+                try:
+                    approved_at = datetime.fromisoformat(str(approval["approved_at"]).replace("Z", "+00:00"))
+                    if approved_at.tzinfo is None:
+                        approved_at = approved_at.replace(tzinfo=timezone.utc)
+                    expires_at = (approved_at.astimezone(timezone.utc) + _PROVIDER_APPROVAL_TTL).isoformat()
+                except (TypeError, ValueError):
+                    expires_at = "1970-01-01T00:00:00+00:00"
+                self.connection.execute(
+                    "UPDATE provider_approvals SET expires_at=? WHERE approval_id=?",
+                    (expires_at, approval["approval_id"]),
+                )
         self.connection.commit()
 
     def close(self) -> None:
