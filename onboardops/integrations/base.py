@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 import requests
 
 _MAX_TIMEOUT_SECONDS = 120.0
@@ -36,7 +36,10 @@ def validate_base_url(value: str, *, allow_local_http: bool = False) -> str:
         raise ValueError("Integration base URL must contain a host and must not embed credentials.")
     if parsed.query or parsed.fragment:
         raise ValueError("Integration base URL must not contain a query string or fragment.")
-    if any(part == ".." for part in parsed.path.split("/")):
+    decoded_base_path = unquote(parsed.path)
+    if chr(92) in decoded_base_path or any(ord(char) < 32 or ord(char) == 127 for char in decoded_base_path):
+        raise ValueError("Integration base URL path contains invalid characters.")
+    if any(part == ".." for part in decoded_base_path.split("/")):
         raise ValueError("Integration base URL must not contain parent-directory path segments.")
     return value.rstrip("/")
 
@@ -79,7 +82,10 @@ class JsonApiClient:
                 headers: dict[str, str] | None = None) -> ApiResult:
         if not path.startswith("/") or path.startswith("//") or "://" in path:
             raise ValueError("API path must be a relative path beginning with one slash.")
-        if any(part == ".." for part in path.split("/")):
+        decoded_path = unquote(path)
+        if chr(92) in decoded_path or any(ord(char) < 32 or ord(char) == 127 for char in decoded_path):
+            raise ValueError("API path contains invalid characters.")
+        if any(part == ".." for part in decoded_path.split("/")):
             raise ValueError("API path must not contain parent-directory segments.")
         request_headers = {"Accept": "application/json", **self.headers, **(headers or {})}
         if self.token:

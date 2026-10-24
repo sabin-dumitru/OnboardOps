@@ -19,10 +19,19 @@ class IntegrationBaseTests(unittest.TestCase):
     def test_local_http_requires_explicit_opt_in(self):
         self.assertEqual(validate_base_url("http://localhost:8000", allow_local_http=True), "http://localhost:8000")
 
-    def test_rejects_absolute_and_parent_paths(self):
+    def test_rejects_absolute_parent_and_encoded_traversal_paths(self):
         api = JsonApiClient("https://example.com", token="secret")
-        with self.assertRaises(ValueError): api.request("GET", "https://evil.example/path")
-        with self.assertRaises(ValueError): api.request("GET", "/../admin")
+        for path in ("https://evil.example/path", "/../admin", "/%2e%2e/admin", "/%2E%2e/admin",
+                     "/safe/%2e%2e/admin", "/bad\\\\path", "/bad%0d%0aheader"):
+            with self.subTest(path=path):
+                with self.assertRaises(ValueError):
+                    api.request("GET", path)
+
+    def test_rejects_encoded_traversal_and_control_characters_in_base_url(self):
+        for url in ("https://example.com/%2e%2e/admin", "https://example.com/%0d%0aheader"):
+            with self.subTest(url=url):
+                with self.assertRaises(ValueError):
+                    validate_base_url(url)
 
     def test_redirect_is_not_followed(self):
         session = Mock()
