@@ -30,7 +30,7 @@ st.markdown("""
 div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
 </style>
 <div class="ops-eyebrow">WORKSPACE · CASES</div>
-<div class="ops-title">Case management</div>
+<h1 class="ops-title">Case management</h1>
 <div class="ops-subtitle">Track onboarding work, review approvals, and inspect a timestamped case history.</div>
 """, unsafe_allow_html=True)
 st.markdown(accessibility_styles(), unsafe_allow_html=True)
