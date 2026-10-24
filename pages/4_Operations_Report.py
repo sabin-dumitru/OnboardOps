@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.cases import CaseStore
+from onboardops.csv_safety import safe_csv_row
 from onboardops.reporting import build_operations_report
 
 st.set_page_config(page_title="OnboardOps · Operations Report", page_icon="📊", layout="wide")
@@ -90,11 +91,11 @@ if report["approval_queue"]:
         "case_id", "waiting_hours", "lifecycle", "priority", "assigned_to", "created_at"
     ])
     approval_writer.writeheader()
-    approval_writer.writerows({
+    approval_writer.writerows(safe_csv_row({
         "case_id": c["case_id"], "waiting_hours": c["age_hours"],
         "lifecycle": c["lifecycle"], "priority": c["priority"],
         "assigned_to": c["assigned_to"], "created_at": c["created_at"],
-    } for c in report["approval_queue"])
+    }) for c in report["approval_queue"])
     st.download_button(
         "Export approval queue (.csv)", approval_export.getvalue(),
         file_name="onboardops_approval_queue.csv", mime="text/csv",
@@ -116,11 +117,11 @@ if report["stale_cases"]:
         "case_id", "idle_days", "status", "lifecycle", "priority", "assigned_to", "updated_at"
     ])
     stale_writer.writeheader()
-    stale_writer.writerows({
+    stale_writer.writerows(safe_csv_row({
         "case_id": c["case_id"], "idle_days": c["idle_days"], "status": c["status"],
         "lifecycle": c["lifecycle"], "priority": c["priority"],
         "assigned_to": c["assigned_to"], "updated_at": c["updated_at"],
-    } for c in report["stale_cases"])
+    }) for c in report["stale_cases"])
     st.download_button(
         "Export stale cases (.csv)", stale_export.getvalue(),
         file_name="onboardops_stale_cases.csv", mime="text/csv",
@@ -145,11 +146,11 @@ writer = csv.DictWriter(export, fieldnames=[
     "case_id", "status", "lifecycle", "priority", "assigned_to", "age_days", "created_at"
 ])
 writer.writeheader()
-writer.writerows({
+writer.writerows(safe_csv_row({
     "case_id": c["case_id"], "status": c["status"], "lifecycle": c["lifecycle"],
     "priority": c["priority"], "assigned_to": c["assigned_to"],
     "age_days": c["age_days"], "created_at": c["created_at"],
-} for c in report["aging_cases"])
+}) for c in report["aging_cases"])
 st.download_button("Export aging cases (.csv)", export.getvalue(), file_name="onboardops_aging_cases.csv", mime="text/csv")
 st.caption(f"Identity: {actor.subject} · Read-only report · Showing up to 500 most recently updated cases")
 store.close()
