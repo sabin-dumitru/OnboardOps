@@ -145,5 +145,28 @@ class CaseStoreTests(unittest.TestCase):
         self.assertEqual(case["request_data"]["api_token"],"[REDACTED]")
         self.assertEqual(case["request_data"]["team"],"IT")
 
+
+    def test_request_data_must_be_an_object(self):
+        with self.assertRaises(CaseStoreError):
+            self.store.create_case(
+                case_id="CASE-PAYLOAD-1", lifecycle="onboarding", requester_id="alice",
+                summary="Invalid payload", request_data=["not", "an", "object"],
+            )
+
+    def test_request_data_is_bounded_after_secret_redaction(self):
+        with self.assertRaises(CaseStoreError):
+            self.store.create_case(
+                case_id="CASE-PAYLOAD-2", lifecycle="onboarding", requester_id="alice",
+                summary="Oversized payload", request_data={"description": "x" * (65 * 1024)},
+            )
+        self.assertEqual(self.store.list_cases(limit=500), [])
+
+    def test_payload_size_limit_counts_utf8_bytes(self):
+        case = self.store.create_case(
+            case_id="CASE-PAYLOAD-3", lifecycle="onboarding", requester_id="alice",
+            summary="Unicode payload", request_data={"department": "équipe"},
+        )
+        self.assertEqual(case["request_data"]["department"], "équipe")
+
 if __name__ == "__main__":
     unittest.main()
