@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from onboardops.sanitization import redact_sensitive_fields
 
 
 class WorkflowError(ValueError):
@@ -122,17 +123,7 @@ class ActionLedger:
 
     @staticmethod
     def _safe_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-        blocked = ("password", "secret", "token", "authorization", "api_key", "client_secret")
-        def clean(value: Any) -> Any:
-            if isinstance(value, dict):
-                return {str(k): ("[REDACTED]" if any(word in str(k).casefold() for word in blocked)
-                                 else clean(v)) for k, v in value.items()}
-            if isinstance(value, list):
-                return [clean(v) for v in value]
-            if isinstance(value, (str, int, float, bool)) or value is None:
-                return value
-            return str(value)
-        return clean(metadata)
+        return redact_sensitive_fields(metadata)
 
     def append_audit(self, *, event_type: str, case_id: str, actor_id: str,
                      metadata: dict[str, Any] | None = None) -> str:

@@ -6,27 +6,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from onboardops.audit_view import describe_event
+from onboardops.sanitization import redact_sensitive_fields
 
 EXPORT_SCHEMA_VERSION = 1
-_SENSITIVE_KEY_PARTS = ("password", "secret", "token", "authorization", "api_key", "client_secret")
-
-
-def _redact_sensitive_fields(value: Any) -> Any:
-    """Redact sensitive-looking keys even in legacy rows created before input sanitisation."""
-    if isinstance(value, dict):
-        return {
-            str(key): ("[REDACTED]" if any(part in str(key).casefold() for part in _SENSITIVE_KEY_PARTS)
-                       else _redact_sensitive_fields(item))
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [_redact_sensitive_fields(item) for item in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
-    return str(value)
-
-
-
 def build_case_export(
     case: dict[str, Any],
     events: list[dict[str, Any]],
@@ -45,7 +27,7 @@ def build_case_export(
     )
     exported_case = {key: case.get(key) for key in case_fields}
     request_data = case.get("request_data", {})
-    exported_case["request_data"] = _redact_sensitive_fields(request_data) if isinstance(request_data, dict) else {}
+    exported_case["request_data"] = redact_sensitive_fields(request_data) if isinstance(request_data, dict) else {}
     history = [describe_event(event) for event in events]
     return {
         "schema_version": EXPORT_SCHEMA_VERSION,
