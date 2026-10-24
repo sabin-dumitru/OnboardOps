@@ -234,5 +234,24 @@ class CaseStoreTests(unittest.TestCase):
         self.assertEqual(case["request_data"]["privateKey"], "[REDACTED]")
         self.assertEqual(case["request_data"]["department"], "IT")
 
+    def test_event_history_returns_only_bounded_most_recent_events(self):
+        self.store.create_case(case_id="CASE-EVENT-LIMIT", lifecycle="onboarding",
+                               requester_id="alice", summary="Bounded event history")
+        for index in range(205):
+            self.store.connection.execute(
+                "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                ("CASE-EVENT-LIMIT", "case.test_event", "tester", None, None,
+                 "{}", f"2026-01-01T00:{index // 60:02d}:{index % 60:02d}+00:00"),
+            )
+        self.store.connection.commit()
+        events = self.store.list_events("CASE-EVENT-LIMIT")
+        self.assertEqual(len(events), 200)
+        self.assertEqual(events, sorted(events, key=lambda event: event["event_id"]))
+        self.assertEqual(events[0]["event_id"], 7)
+        self.assertEqual(events[-1]["event_id"], 206)
+        with self.assertRaisesRegex(CaseStoreError, "limit"):
+            self.store.list_events("CASE-EVENT-LIMIT", limit=501)
+
 if __name__ == "__main__":
     unittest.main()
