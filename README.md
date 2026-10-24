@@ -86,7 +86,7 @@ A tested GitHub issue workflow connects role checks, separate-actor payload-boun
 
 ## Optional integration adapters
 
-Launch the app and select **Integration Lab** in the Streamlit multipage navigation to check environment configuration, perform configured read-only lookups, and preview provider-shaped write payloads. See [Integration setup and limitations](docs/INTEGRATIONS.md), [Architecture notes](docs/ARCHITECTURE.md), and the [threat model and deployment checklist](docs/THREAT_MODEL.md).
+Launch the app and select **Integration Lab** in the Streamlit multipage navigation to check environment configuration, perform configured read-only lookups, and preview provider-shaped write payloads. See [Integration setup and limitations](docs/INTEGRATIONS.md), [Architecture notes](docs/ARCHITECTURE.md), the [threat model and deployment checklist](docs/THREAT_MODEL.md), and the [operator runbook](docs/OPERATIONS_RUNBOOK.md).
 
 | Provider | Implemented capability | Live writes default |
 |---|---|---|
