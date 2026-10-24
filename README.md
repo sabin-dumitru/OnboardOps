@@ -127,3 +127,6 @@ OnboardOps is a personal portfolio project. It is an integration and workflow pr
 ## Engineering roadmap
 
 See the [presentation and company-readiness plan](docs/PRESENTATION_READINESS_PLAN.md) for the next risk-first improvement sequence and explicit production-readiness gates.
+
+
+For a repeatable live walkthrough, use the [five-minute presentation script](docs/PRESENTATION_SCRIPT.md).
