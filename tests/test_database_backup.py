@@ -1,5 +1,6 @@
 import sqlite3
 import tempfile
+from contextlib import closing
 import unittest
 from pathlib import Path
 
@@ -11,9 +12,10 @@ class DatabaseBackupTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.source = self.root / "cases.sqlite3"
-        with sqlite3.connect(self.source) as connection:
+        with closing(sqlite3.connect(self.source)) as connection:
             connection.execute("CREATE TABLE cases (case_id TEXT PRIMARY KEY, summary TEXT NOT NULL)")
             connection.execute("INSERT INTO cases VALUES (?, ?)", ("CASE-DEMO-1", "Synthetic case"))
+            connection.commit()
 
     def tearDown(self):
         self.temp.cleanup()
@@ -21,7 +23,7 @@ class DatabaseBackupTests(unittest.TestCase):
     def test_backup_contains_committed_data_and_passes_integrity_check(self):
         destination = backup_sqlite_database(self.source, self.root / "backups" / "snapshot.sqlite3")
         self.assertTrue(destination.is_file())
-        with sqlite3.connect(destination) as connection:
+        with closing(sqlite3.connect(destination)) as connection:
             self.assertEqual(connection.execute("PRAGMA integrity_check").fetchone()[0], "ok")
             self.assertEqual(
                 connection.execute("SELECT summary FROM cases WHERE case_id='CASE-DEMO-1'").fetchone()[0],
@@ -39,7 +41,7 @@ class DatabaseBackupTests(unittest.TestCase):
         destination = self.root / "snapshot.sqlite3"
         destination.write_bytes(b"old backup")
         backup_sqlite_database(self.source, destination, overwrite=True)
-        with sqlite3.connect(destination) as connection:
+        with closing(sqlite3.connect(destination)) as connection:
             self.assertEqual(connection.execute("PRAGMA integrity_check").fetchone()[0], "ok")
 
     def test_source_and_destination_must_differ(self):
