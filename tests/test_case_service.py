@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from onboardops.auth import Actor, AuthorizationError
+from onboardops.auth import Actor, AuthorizationError, has_permission
 from onboardops.case_service import CaseService
 from onboardops.cases import CaseStore, CaseStoreError
 
@@ -57,6 +57,14 @@ class CaseServiceAuthorizationTests(unittest.TestCase):
         with self.assertRaises(AuthorizationError):
             visitor.create_case(case_id="CASE-VISITOR", lifecycle="onboarding",
                                 summary="Not allowed")
+
+    def test_permission_query_matches_action_authorization(self):
+        self.assertTrue(has_permission(self.alice, "cases:create"))
+        self.assertFalse(has_permission(self.alice, "cases:transition"))
+        self.assertFalse(has_permission(
+            Actor("local-demo", frozenset({"onboardops-demo"}), "demo"),
+            "integrations:read", production_only=True,
+        ))
 
 
 if __name__ == "__main__":
