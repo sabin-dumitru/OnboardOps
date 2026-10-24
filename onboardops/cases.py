@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from onboardops.workflow import TRANSITIONS, WorkflowError
+from onboardops.sanitization import redact_sensitive_fields
 
 _CASE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
 _LIFECYCLES = {"onboarding", "offboarding", "transfer", "change"}
@@ -67,15 +68,8 @@ class CaseStore:
 
     @staticmethod
     def _safe_json(value: Any) -> Any:
-        blocked = ("password", "secret", "token", "authorization", "api_key", "client_secret")
-        if isinstance(value, dict):
-            return {str(k): ("[REDACTED]" if any(b in str(k).casefold() for b in blocked)
-                             else CaseStore._safe_json(v)) for k, v in value.items()}
-        if isinstance(value, list):
-            return [CaseStore._safe_json(v) for v in value]
-        if isinstance(value, (str, int, float, bool)) or value is None:
-            return value
-        return str(value)
+        """Backward-compatible wrapper around the shared sanitization policy."""
+        return redact_sensitive_fields(value)
 
     def create_case(self, *, case_id: str, lifecycle: str, requester_id: str,
                     summary: str, request_data: dict[str, Any] | None = None) -> dict[str, Any]:
