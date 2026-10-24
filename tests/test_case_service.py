@@ -66,6 +66,14 @@ class CaseServiceAuthorizationTests(unittest.TestCase):
             "integrations:read", production_only=True,
         ))
 
+    def test_missing_and_inaccessible_case_ids_have_same_error(self):
+        messages = []
+        for case_id in ("CASE-BOB", "CASE-MISSING"):
+            with self.assertRaises(CaseStoreError) as caught:
+                self.alice_service.get_case(case_id)
+            messages.append(str(caught.exception))
+        self.assertEqual(messages[0], messages[1])
+
 
 if __name__ == "__main__":
     unittest.main()
