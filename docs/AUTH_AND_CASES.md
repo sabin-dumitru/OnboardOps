@@ -33,7 +33,18 @@ Create a consistent SQLite backup while the app is running:
 python scripts/backup_cases.py --destination backups/cases-2026-10-24.sqlite3
 ```
 
-The source defaults to `ONBOARDOPS_CASE_DB` or `data/onboardops_cases.sqlite3`. The helper uses SQLite's online backup API (so committed WAL data is included), checks the backup with `PRAGMA integrity_check`, and refuses to overwrite an existing destination unless `--overwrite` is explicitly passed. Store backups somewhere with appropriately restricted filesystem permissions; case payloads may contain sensitive data even though credentials are redacted by key name.
+The source defaults to `ONBOARDOPS_CASE_DB` or `data/onboardops_cases.sqlite3`. The helper uses SQLite's online backup API (so committed WAL data is included), checks the backup with `PRAGMA integrity_check`, and refuses to overwrite an existing destination unless `--overwrite` is explicitly passed.
+
+With Docker Compose, use the mounted database and output volume rather than the host default path:
+
+```sh
+docker compose exec onboardops python scripts/backup_cases.py \
+  --source /app/state/onboardops_cases.sqlite3 \
+  --destination /app/outputs/cases-YYYY-MM-DD.sqlite3
+docker compose cp onboardops:/app/outputs/cases-YYYY-MM-DD.sqlite3 ./backups/
+```
+
+Replace the date placeholder before running and keep the copied backup access-controlled. Store backups somewhere with appropriately restricted filesystem permissions; case payloads may contain sensitive data even though credentials are redacted by key name.
 
 To restore, stop Streamlit first, preserve a copy of the current database, then copy the verified backup to the configured database path. Start the app and verify expected case counts and histories before resuming use. Do not overwrite a live database file or treat this local procedure as a tested disaster-recovery plan. This utility backs up the case database only; it does not back up the separate provider action ledger if that ledger is configured elsewhere.
 
