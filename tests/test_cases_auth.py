@@ -168,5 +168,60 @@ class CaseStoreTests(unittest.TestCase):
         )
         self.assertEqual(case["request_data"]["department"], "équipe")
 
+
+    def test_provider_approval_expiry_revokes_and_audits_without_consuming(self):
+        self.store.create_case(case_id="CASE-EXPIRY-1", lifecycle="onboarding",
+                               requester_id="alice", summary="Approval expiry")
+        approval = self.store.record_provider_approval(
+            case_id="CASE-EXPIRY-1", requester_id="alice", approver_id="bob",
+            provider="github", operation="create_issue", payload={"title": "Demo"},
+            fingerprint="fingerprint-demo",
+        )
+        self.assertTrue(approval["expires_at"])
+        self.store.connection.execute(
+            "UPDATE provider_approvals SET expires_at=? WHERE approval_id=?",
+            ("2000-01-01T00:00:00+00:00", approval["approval_id"]),
+        )
+        self.store.connection.commit()
+        with self.assertRaisesRegex(CaseStoreError, "expired"):
+            self.store.consume_provider_approval(
+                approval["approval_id"], expected_fingerprint="fingerprint-demo",
+            )
+        self.assertEqual(self.store.get_provider_approval(approval["approval_id"])["status"], "revoked")
+        self.assertEqual(self.store.list_events("CASE-EXPIRY-1")[-1]["event_type"],
+                         "provider_action.approval_expired")
+
+    def test_unused_provider_approval_can_be_revoked_once(self):
+        self.store.create_case(case_id="CASE-REVOKE-1", lifecycle="onboarding",
+                               requester_id="alice", summary="Approval revoke")
+        approval = self.store.record_provider_approval(
+            case_id="CASE-REVOKE-1", requester_id="alice", approver_id="bob",
+            provider="github", operation="create_issue", payload={"title": "Demo"},
+            fingerprint="fingerprint-demo",
+        )
+        revoked = self.store.revoke_provider_approval(approval["approval_id"], actor_id="admin")
+        self.assertEqual(revoked["status"], "revoked")
+        self.assertEqual(self.store.list_events("CASE-REVOKE-1")[-1]["actor_id"], "admin")
+        with self.assertRaisesRegex(CaseStoreError, "no longer available"):
+            self.store.consume_provider_approval(
+                approval["approval_id"], expected_fingerprint="fingerprint-demo",
+            )
+
+    def test_legacy_provider_approval_schema_migrates_with_expiry(self):
+        self.store.create_case(case_id="CASE-EXPIRY-MIGRATE", lifecycle="onboarding",
+                               requester_id="alice", summary="Legacy approval")
+        approval = self.store.record_provider_approval(
+            case_id="CASE-EXPIRY-MIGRATE", requester_id="alice", approver_id="bob",
+            provider="github", operation="create_issue", payload={"title": "Demo"},
+            fingerprint="fingerprint-demo",
+        )
+        self.store.connection.execute("ALTER TABLE provider_approvals DROP COLUMN expires_at")
+        self.store.connection.commit()
+        self.store.close()
+        self.store = CaseStore(self.path)
+        migrated = self.store.get_provider_approval(approval["approval_id"])
+        self.assertTrue(migrated["expires_at"])
+        self.assertEqual(migrated["status"], "approved")
+
 if __name__ == "__main__":
     unittest.main()
