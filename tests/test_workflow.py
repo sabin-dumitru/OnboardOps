@@ -43,10 +43,13 @@ class WorkflowTests(unittest.TestCase):
         ledger = ActionLedger()
         try:
             ledger.append_audit(event_type="case.created", case_id="CASE-1", actor_id="demo",
-                                metadata={"api_token": "do-not-log", "nested": {"status": "ok"}})
+                                metadata={"api_token": "do-not-log", "apiKey": "camel-case-secret",
+                                          "privateKey": "private-key-secret", "nested": {"status": "ok"}})
             self.assertTrue(ledger.verify_audit_chain())
             row = ledger.connection.execute("SELECT metadata_json FROM audit_events").fetchone()
             self.assertNotIn("do-not-log", row["metadata_json"])
+            self.assertNotIn("camel-case-secret", row["metadata_json"])
+            self.assertNotIn("private-key-secret", row["metadata_json"])
             self.assertIn("[REDACTED]", row["metadata_json"])
         finally: ledger.close()
 
