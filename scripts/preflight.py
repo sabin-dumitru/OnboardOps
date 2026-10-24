@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import sqlite3
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -81,6 +82,42 @@ def run_preflight(root: str | Path | None = None,
             "existing database is readable or writable by group/others; restrict it with chmod 600",
             warning=not private,
         ))
+
+    if database_path.is_file():
+        try:
+            if database_path.stat().st_size == 0:
+                results.append(_check(
+                    "Case database integrity", True,
+                    "database file is empty and will be initialized by the app", warning=True,
+                ))
+            else:
+                uri = database_path.resolve().as_uri() + "?mode=ro"
+                with sqlite3.connect(uri, uri=True, timeout=1) as connection:
+                    integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
+                    table_names = {
+                        row[0] for row in connection.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table'"
+                        ).fetchall()
+                    }
+                schema_ok = not table_names or {"cases", "case_events"}.issubset(table_names)
+                ok = integrity == "ok" and schema_ok
+                if not table_names and integrity == "ok":
+                    results.append(_check(
+                        "Case database integrity", True,
+                        "valid empty SQLite database; app schema has not been initialized", warning=True,
+                    ))
+                else:
+                    results.append(_check(
+                        "Case database integrity", ok,
+                        "SQLite integrity and core case tables verified" if ok else
+                        "database integrity check or core case schema failed; preserve a copy before repair",
+                    ))
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            # Do not include database paths or driver exception details in the terminal output.
+            results.append(_check(
+                "Case database integrity", False,
+                f"database could not be checked ({type(exc).__name__}); preserve a copy before repair",
+            ))
 
     output_value = str(env.get("ONBOARDOPS_OUTPUT_DIR", project_root / "outputs"))
     output_path = Path(output_value).expanduser()
