@@ -10,6 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.cases import CaseStore, CaseStoreError
+from onboardops.demo_fixtures import seed_sample_cases
 from onboardops.workflow import TRANSITIONS, WorkflowError
 
 st.set_page_config(page_title="OnboardOps · Cases",page_icon="🗂️",layout="wide")
@@ -48,37 +49,13 @@ def show_error(exc):
     else:
         st.error("Operation failed; sensitive details were withheld.")
 
-# Demo fixtures are explicitly synthetic and use dedicated fixture identities.
-# The action is idempotent: existing sample IDs are left untouched.
+# Demo fixtures are synthetic and isolated from provider integrations.
 with st.expander("Portfolio demo helpers", expanded=False):
     st.caption("Optional sample records for demonstrations. These are synthetic fixtures, not employee records.")
     if st.button("Load synthetic sample cases", key="load_sample_cases"):
         try:
             require_permission(actor, "cases:create")
-            existing_ids = {case["case_id"] for case in store.list_cases(limit=500)}
-            samples = [
-                ("CASE-SAMPLE-1001", "Draft", "draft"),
-                ("CASE-SAMPLE-1002", "Awaiting approval", "pending_approval"),
-                ("CASE-SAMPLE-1003", "Work in progress", "in_progress"),
-                ("CASE-SAMPLE-1004", "Completed onboarding", "completed"),
-            ]
-            created = 0
-            for sample_id, summary, target_status in samples:
-                if sample_id in existing_ids:
-                    continue
-                store.create_case(
-                    case_id=sample_id, lifecycle="onboarding",
-                    requester_id="synthetic-demo-requester", summary=summary,
-                    request_data={"employee_id": "DEMO-" + sample_id[-4:], "operating_system": "Windows", "synthetic": True},
-                )
-                created += 1
-                if target_status != "draft":
-                    store.transition(case_id=sample_id, target="pending_approval", actor_id="synthetic-demo-requester")
-                if target_status in {"in_progress", "completed"}:
-                    store.approve_case(case_id=sample_id, approver_id="synthetic-demo-approver")
-                    store.transition(case_id=sample_id, target="in_progress", actor_id="synthetic-demo-technician")
-                if target_status == "completed":
-                    store.transition(case_id=sample_id, target="completed", actor_id="synthetic-demo-technician")
+            created = seed_sample_cases(store)
             if created:
                 st.success(f"Added {created} synthetic sample case(s). Existing sample cases were left unchanged.")
             else:
@@ -106,16 +83,34 @@ tab_list,tab_create=st.tabs(["Saved cases and history","Create synthetic case"])
 with tab_list:
     st.subheader("Saved cases")
     if cases:
-        filter_col,search_col=st.columns([1,2])
+        filter_col, lifecycle_col, search_col = st.columns([1, 1, 2])
         with filter_col:
-            status_options=["All statuses"]+sorted({str(c["status"]) for c in cases})
-            status_filter=st.selectbox("Filter by status",status_options)
+            status_options = ["All statuses"] + sorted({str(c["status"]) for c in cases})
+            status_filter = st.selectbox("Filter by status", status_options)
+        with lifecycle_col:
+            lifecycle_options = ["All workflows"] + sorted({str(c["lifecycle"]) for c in cases})
+            lifecycle_filter = st.selectbox("Filter by workflow", lifecycle_options)
         with search_col:
-            search_term=st.text_input("Search cases",placeholder="Case ID or summary")
-        visible_cases=[c for c in cases
-                       if (status_filter=="All statuses" or c["status"]==status_filter)
-                       and search_term.casefold() in (str(c["case_id"])+" "+str(c["summary"])).casefold()]
+            search_term = st.text_input("Search cases", placeholder="Case ID or summary")
+        visible_cases = [
+            c for c in cases
+            if (status_filter == "All statuses" or c["status"] == status_filter)
+            and (lifecycle_filter == "All workflows" or c["lifecycle"] == lifecycle_filter)
+            and search_term.casefold() in (str(c["case_id"]) + " " + str(c["summary"])).casefold()
+        ]
         st.caption(f"Showing {len(visible_cases)} of {len(cases)} case(s).")
+        if visible_cases:
+            import csv
+            from io import StringIO
+            export_buffer = StringIO()
+            writer = csv.DictWriter(export_buffer, fieldnames=["case_id", "lifecycle", "status", "summary", "updated_at", "version"])
+            writer.writeheader()
+            writer.writerows({
+                "case_id": c["case_id"], "lifecycle": c["lifecycle"], "status": c["status"],
+                "summary": c["summary"], "updated_at": c["updated_at"], "version": c["version"]
+            } for c in visible_cases)
+            st.download_button("Export filtered cases (.csv)", export_buffer.getvalue(),
+                               file_name="onboardops_cases.csv", mime="text/csv")
         if visible_cases:
             st.dataframe([{"Case ID":c["case_id"],"Lifecycle":c["lifecycle"],"Status":c["status"],
                            "Summary":c["summary"],"Updated":c["updated_at"],"Version":c["version"]}
@@ -156,9 +151,12 @@ with tab_list:
                 else:
                     st.caption("This case is in a terminal state.")
             st.write("**Case history**")
-            st.dataframe([{"Event":e["event_type"],"Actor":e["actor_id"],"From":e["from_status"] or "—",
-                           "To":e["to_status"] or "—","At":e["occurred_at"]} for e in store.list_events(selected)],
-                         use_container_width=True,hide_index=True)
+            events = store.list_events(selected)
+            st.dataframe([{"Event": e["event_type"], "Actor": e["actor_id"],
+                           "From": e["from_status"] or "—", "To": e["to_status"] or "—",
+                           "At (UTC)": e["occurred_at"], "Details": json.dumps(e["metadata"], sort_keys=True)}
+                          for e in events], use_container_width=True, hide_index=True)
+            st.caption(f"{len(events)} recorded event(s). Timestamps are stored in UTC.")
     else:
         st.info("No saved cases yet. Create one in the next tab.")
 
