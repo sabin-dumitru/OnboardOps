@@ -68,13 +68,14 @@ For a short, repeatable demonstration, use synthetic data only:
 No credentials or external service access are required:
 
 ```powershell
+python scripts/preflight.py
 python -m unittest discover -s tests -v
 python -m compileall -q app.py onboardops tests scripts
 python scripts/demo.py
 python scripts/integration_demo.py
 ```
 
-The integration demo previews provider payloads, exercises a synthetic approval flow and verifies a local audit hash chain. It makes no HTTP requests. Tests use mocks and synthetic data; they do not prove live tenant permissions or live API compatibility.
+The preflight command checks local configuration files, auth-mode readiness, and writable database/output locations without printing secrets or making network calls. The integration demo previews provider payloads, exercises a synthetic approval flow and verifies a local audit hash chain. It makes no HTTP requests. Tests use mocks and synthetic data; they do not prove live tenant permissions or live API compatibility.
 
 ## Persistent cases and authentication boundary
 
