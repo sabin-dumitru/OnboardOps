@@ -270,5 +270,19 @@ class CaseStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(CaseStoreError, "valid JSON-compatible"):
             self.store.record_provider_approval(**base, payload={"score": float("inf")})
 
+    @unittest.skipUnless(os.name == "posix", "POSIX permission bits are not portable to Windows")
+    def test_new_case_database_and_parent_directory_are_private_by_default(self):
+        import stat
+        from pathlib import Path
+
+        database = Path(self.temp.name) / "private" / "nested" / "cases.sqlite3"
+        store = CaseStore(database)
+        try:
+            self.assertEqual(stat.S_IMODE(database.stat().st_mode) & 0o077, 0)
+            self.assertEqual(stat.S_IMODE(database.parent.stat().st_mode) & 0o077, 0)
+            self.assertEqual(store.database_path, str(database))
+        finally:
+            store.close()
+
 if __name__ == "__main__":
     unittest.main()
