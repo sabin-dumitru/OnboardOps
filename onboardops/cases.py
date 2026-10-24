@@ -226,7 +226,9 @@ class CaseStore:
         if not all(x.strip() for x in (provider, operation, fingerprint)):
             raise CaseStoreError("Provider, operation and fingerprint are required.")
         safe_payload = json.dumps(self._safe_json(payload), sort_keys=True, ensure_ascii=False)
-        now = _now()
+        approved_at = datetime.now(timezone.utc)
+        now = approved_at.isoformat()
+        expires_at = (approved_at + _PROVIDER_APPROVAL_TTL).isoformat()
         try:
             self.connection.execute("BEGIN IMMEDIATE")
             case_row = self.connection.execute("SELECT requester_id FROM cases WHERE case_id=?", (case_id,)).fetchone()
@@ -245,13 +247,13 @@ class CaseStore:
                 )
             """)
             cur = self.connection.execute(
-                "INSERT INTO provider_approvals(case_id,requester_id,approver_id,provider,operation,payload_json,fingerprint,approved_at,status) VALUES (?,?,?,?,?,?,?,?, 'approved')",
-                (case_id, requester_id, approver_id, provider, operation, safe_payload, fingerprint, now))
+                "INSERT INTO provider_approvals(case_id,requester_id,approver_id,provider,operation,payload_json,fingerprint,approved_at,expires_at,status) VALUES (?,?,?,?,?,?,?,?,?, 'approved')",
+                (case_id, requester_id, approver_id, provider, operation, safe_payload, fingerprint, now, expires_at))
             approval_id = cur.lastrowid
             self.connection.execute(
                 "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
                 (case_id, "provider_action.approved", approver_id, None, None,
-                 json.dumps({"approval_id": approval_id, "provider": provider, "operation": operation, "fingerprint": fingerprint}, sort_keys=True), now))
+                 json.dumps({"approval_id": approval_id, "provider": provider, "operation": operation, "fingerprint": fingerprint, "expires_at": expires_at}, sort_keys=True), now))
             self.connection.commit()
         except Exception:
             self.connection.rollback()
