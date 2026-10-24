@@ -99,7 +99,7 @@ Launch the app and select **Integration Lab** in the Streamlit multipage navigat
 | Workday | Configured worker GET and tenant-specific POST preview/write | Dry-run |
 | GitHub | Repository issue create preview/write | Dry-run |
 
-Credentials are passed into adapter constructors by application code; they are not stored in the repository. The committed environment example is a list of variable names only and is not automatically loaded. Use a secret manager or local environment variables. Never commit real tokens.
+Credentials are passed into adapter constructors by application code; they are not stored in the repository. The committed environment example contains variable names and non-secret placeholder URLs; it is not automatically loaded. Use a secret manager or local environment variables. Never commit real tokens.
 
 ## Important security and reliability boundaries
 
@@ -116,7 +116,7 @@ Credentials are passed into adapter constructors by application code; they are n
 The next production-oriented milestones are deliberately separate from the current local demo:
 
 1. Replace the trusted-proxy seam with reviewed OIDC/SSO, independently verify identity propagation, and continue expanding record-level authorization tests. Keep every UI/API entry point behind CaseService; never expose raw CaseStore operations to untrusted callers.
-2. Introduce versioned migrations and PostgreSQL only alongside a concrete multi-user deployment requirement.
+2. Expand versioned migration coverage, and introduce PostgreSQL only alongside a concrete multi-user deployment requirement.
 3. Add a durable transactional outbox and provider-specific reconciliation for ambiguous write outcomes.
 4. Add structured redacted logs, retention/backup policy, and restore tests.
 5. Add opt-in live contract tests against isolated provider test tenants; keep them out of ordinary CI.
