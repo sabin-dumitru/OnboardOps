@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -100,6 +101,32 @@ class CaseServiceAuthorizationTests(unittest.TestCase):
     def test_case_store_rejects_unknown_status_filter(self):
         with self.assertRaisesRegex(CaseStoreError, "status filter"):
             self.store.list_cases(limit=10, status="not-a-status")
+
+    def test_authorization_denial_is_structured_and_omits_raw_identity_and_case_id(self):
+        with self.assertLogs("onboardops.security", level="WARNING") as captured:
+            with self.assertRaises(AuthorizationError):
+                self.alice_service.transition(
+                    case_id="CASE-ALICE", target="pending_approval", expected_version=1,
+                )
+        rendered = captured.output[0]
+        payload = json.loads(rendered.split(":", 2)[2])
+        self.assertEqual(payload["event"], "authorization.denied")
+        self.assertEqual(payload["outcome"], "denied")
+        self.assertEqual(payload["permission"], "cases:transition")
+        self.assertEqual(payload["reason"], "permission_denied")
+        self.assertNotIn("alice", rendered)
+        self.assertNotIn("CASE-ALICE", rendered)
+
+    def test_inaccessible_case_read_logs_pseudonymous_resource_reference(self):
+        with self.assertLogs("onboardops.security", level="WARNING") as captured:
+            with self.assertRaises(CaseStoreError):
+                self.alice_service.get_case("CASE-BOB")
+        rendered = captured.output[0]
+        payload = json.loads(rendered.split(":", 2)[2])
+        self.assertEqual(payload["reason"], "case_not_visible")
+        self.assertTrue(payload["resource_ref"])
+        self.assertNotIn("CASE-BOB", rendered)
+        self.assertNotIn("alice", rendered)
 
 
 if __name__ == "__main__":
