@@ -42,6 +42,45 @@ db_path=os.environ.get("ONBOARDOPS_CASE_DB",str(ROOT/"data"/"onboardops_cases.sq
 store=CaseStore(db_path)
 st.info("Local demo stores synthetic cases in SQLite on this machine. Single-user demo only. Provider writes are disabled.")
 st.caption(f"Identity: {actor.subject} · Mode: {actor.mode} · Roles: {', '.join(sorted(actor.roles))}")
+# Demo fixtures are explicitly synthetic and use dedicated fixture identities.
+# The action is idempotent: existing sample IDs are left untouched.
+with st.expander("Portfolio demo helpers", expanded=False):
+    st.caption("Optional sample records for demonstrations. These are synthetic fixtures, not employee records.")
+    if st.button("Load synthetic sample cases", key="load_sample_cases"):
+        try:
+            require_permission(actor, "cases:create")
+            existing_ids = {case["case_id"] for case in store.list_cases(limit=500)}
+            samples = [
+                ("CASE-SAMPLE-1001", "Draft", "draft"),
+                ("CASE-SAMPLE-1002", "Awaiting approval", "pending_approval"),
+                ("CASE-SAMPLE-1003", "Work in progress", "in_progress"),
+                ("CASE-SAMPLE-1004", "Completed onboarding", "completed"),
+            ]
+            created = 0
+            for sample_id, summary, target_status in samples:
+                if sample_id in existing_ids:
+                    continue
+                store.create_case(
+                    case_id=sample_id, lifecycle="onboarding",
+                    requester_id="synthetic-demo-requester", summary=summary,
+                    request_data={"employee_id": "DEMO-" + sample_id[-4:], "operating_system": "Windows", "synthetic": True},
+                )
+                created += 1
+                if target_status != "draft":
+                    store.transition(case_id=sample_id, target="pending_approval", actor_id="synthetic-demo-requester")
+                if target_status in {"in_progress", "completed"}:
+                    store.approve_case(case_id=sample_id, approver_id="synthetic-demo-approver")
+                    store.transition(case_id=sample_id, target="in_progress", actor_id="synthetic-demo-technician")
+                if target_status == "completed":
+                    store.transition(case_id=sample_id, target="completed", actor_id="synthetic-demo-technician")
+            if created:
+                st.success(f"Added {created} synthetic sample case(s). Existing sample cases were left unchanged.")
+            else:
+                st.info("The synthetic sample cases are already present; no records were changed.")
+            st.rerun()
+        except Exception as exc:
+            show_error(exc)
+
 
 def show_error(exc):
     if isinstance(exc,(AuthorizationError,CaseStoreError,WorkflowError,ValueError)):
