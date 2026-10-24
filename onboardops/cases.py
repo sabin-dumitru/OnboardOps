@@ -270,8 +270,10 @@ class CaseStore:
 
 
     def consume_provider_approval(self, approval_id: int, *, expected_fingerprint: str) -> dict[str, Any]:
-        """Atomically consume a persisted approval once; callers must reconcile ambiguous outcomes."""
-        now = _now()
+        """Atomically consume an unexpired approval once; callers reconcile ambiguous outcomes."""
+        now_dt = datetime.now(timezone.utc)
+        now = now_dt.isoformat()
+        expired = False
         try:
             self.connection.execute("BEGIN IMMEDIATE")
             row = self.connection.execute("SELECT * FROM provider_approvals WHERE approval_id=?", (approval_id,)).fetchone()
@@ -279,20 +281,76 @@ class CaseStore:
                 raise CaseStoreError("Provider approval not found.")
             if row["status"] != "approved":
                 raise CaseStoreError("Provider approval is no longer available for use.")
-            if row["fingerprint"] != expected_fingerprint:
-                raise CaseStoreError("Provider approval does not match the requested payload.")
+            try:
+                expires_at = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                expired = expires_at.astimezone(timezone.utc) <= now_dt
+            except (TypeError, ValueError):
+                expired = True
+
+            if expired:
+                self.connection.execute(
+                    "UPDATE provider_approvals SET status='revoked' WHERE approval_id=? AND status='approved'",
+                    (approval_id,),
+                )
+                self.connection.execute(
+                    "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
+                    (row["case_id"], "provider_action.approval_expired", row["approver_id"], None, None,
+                     json.dumps({"approval_id": approval_id, "provider": row["provider"], "operation": row["operation"]}, sort_keys=True), now),
+                )
+                self.connection.commit()
+            else:
+                if row["fingerprint"] != expected_fingerprint:
+                    raise CaseStoreError("Provider approval does not match the requested payload.")
+                cur = self.connection.execute(
+                    "UPDATE provider_approvals SET status='consumed' WHERE approval_id=? AND status='approved' AND fingerprint=?",
+                    (approval_id, expected_fingerprint),
+                )
+                if cur.rowcount != 1:
+                    raise CaseStoreError("Provider approval was already consumed; reconcile before retrying.")
+                self.connection.execute(
+                    "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
+                    (row["case_id"], "provider_action.approval_consumed", row["approver_id"], None, None,
+                     json.dumps({"approval_id": approval_id, "provider": row["provider"], "operation": row["operation"]}, sort_keys=True), now),
+                )
+                self.connection.commit()
+        except Exception:
+            if self.connection.in_transaction:
+                self.connection.rollback()
+            raise
+        if expired:
+            raise CaseStoreError("Provider approval expired or had an invalid expiry; request a new approval.")
+        return self.get_provider_approval(approval_id)
+
+    def revoke_provider_approval(self, approval_id: int, *, actor_id: str) -> dict[str, Any]:
+        """Revoke an unused provider approval and record the actor in case history."""
+        actor_id = actor_id.strip()
+        if not actor_id:
+            raise CaseStoreError("Actor identity is required.")
+        now = _now()
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            row = self.connection.execute("SELECT * FROM provider_approvals WHERE approval_id=?", (approval_id,)).fetchone()
+            if row is None:
+                raise CaseStoreError("Provider approval not found.")
+            if row["status"] != "approved":
+                raise CaseStoreError("Only an unused approved action can be revoked.")
             cur = self.connection.execute(
-                "UPDATE provider_approvals SET status='consumed' WHERE approval_id=? AND status='approved' AND fingerprint=?",
-                (approval_id, expected_fingerprint))
+                "UPDATE provider_approvals SET status='revoked' WHERE approval_id=? AND status='approved'",
+                (approval_id,),
+            )
             if cur.rowcount != 1:
-                raise CaseStoreError("Provider approval was already consumed; reconcile before retrying.")
+                raise CaseStoreError("Provider approval is no longer available for revocation.")
             self.connection.execute(
                 "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) VALUES (?,?,?,?,?,?,?)",
-                (row["case_id"], "provider_action.approval_consumed", row["approver_id"], None, None,
-                 json.dumps({"approval_id": approval_id, "provider": row["provider"], "operation": row["operation"]}, sort_keys=True), now))
+                (row["case_id"], "provider_action.approval_revoked", actor_id, None, None,
+                 json.dumps({"approval_id": approval_id, "provider": row["provider"], "operation": row["operation"]}, sort_keys=True), now),
+            )
             self.connection.commit()
         except Exception:
-            self.connection.rollback()
+            if self.connection.in_transaction:
+                self.connection.rollback()
             raise
         return self.get_provider_approval(approval_id)
 
