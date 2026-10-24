@@ -88,6 +88,21 @@ class ProviderPayloadTests(unittest.TestCase):
         self.assertEqual(result["mode"], "dry_run")
 
 
+    def test_provider_timeout_must_be_finite_and_bounded(self):
+        for timeout in (0, -1, float("inf"), float("nan"), 121, True, "10"):
+            with self.subTest(timeout=timeout):
+                with self.assertRaises(ValueError):
+                    JsonApiClient("https://example.com", timeout_seconds=timeout)
+
+    def test_oversized_success_response_is_rejected_before_json_parsing(self):
+        session = Mock()
+        response = Mock(status_code=200, content=b"x" * (2 * 1024 * 1024 + 1))
+        session.request.return_value = response
+        with self.assertRaises(IntegrationError) as ctx:
+            JsonApiClient("https://example.com", session=session).request("GET", "/api")
+        self.assertEqual(ctx.exception.code, "response_too_large")
+        response.json.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -1,10 +1,13 @@
 """Defensive JSON REST client shared by provider adapters."""
 from __future__ import annotations
 from dataclasses import dataclass
+import math
 from typing import Any
 from urllib.parse import urlsplit
 import requests
-from ..workflow import Approval, verify_approval
+
+_MAX_TIMEOUT_SECONDS = 120.0
+_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 from ..workflow import Approval, verify_approval
 
 
@@ -63,8 +66,12 @@ class JsonApiClient:
                  timeout_seconds: float = 10.0, session: requests.Session | None = None,
                  allow_local_http: bool = False) -> None:
         self.base_url = validate_base_url(base_url, allow_local_http=allow_local_http)
+        if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)):
+            raise ValueError("Provider timeout must be a finite number between 0 and 120 seconds.")
+        if not math.isfinite(timeout_seconds) or not 0 < timeout_seconds <= _MAX_TIMEOUT_SECONDS:
+            raise ValueError("Provider timeout must be a finite number between 0 and 120 seconds.")
         self.token, self.headers, self.auth = token, dict(headers or {}), auth
-        self.timeout_seconds = timeout_seconds
+        self.timeout_seconds = float(timeout_seconds)
         self.session = session or requests.Session()
 
     def request(self, method: str, path: str, *, params: dict[str, Any] | None = None,
@@ -101,6 +108,12 @@ class JsonApiClient:
                                    status_code=response.status_code)
         if response.status_code == 204 or not response.content:
             return ApiResult(response.status_code, None)
+        if len(response.content) > _MAX_RESPONSE_BYTES:
+            raise IntegrationError(
+                "response_too_large",
+                "Provider response exceeded the 2 MiB safety limit.",
+                status_code=response.status_code,
+            )
         try:
             data = response.json()
         except (ValueError, requests.JSONDecodeError) as exc:
