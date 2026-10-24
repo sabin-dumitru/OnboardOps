@@ -81,6 +81,26 @@ class CaseServiceAuthorizationTests(unittest.TestCase):
             messages.append(str(caught.exception))
         self.assertEqual(messages[0], messages[1])
 
+    def test_requester_scope_is_applied_before_global_page_limit(self):
+        future = "2099-01-01T00:00:00+00:00"
+        rows = [
+            (f"CASE-OTHER-{index:04d}", "onboarding", "draft", f"other-{index}",
+             "Synthetic other request", "{}", "normal", None, future, future, 1)
+            for index in range(501)
+        ]
+        self.store.connection.executemany(
+            "INSERT INTO cases(case_id,lifecycle,status,requester_id,summary,request_json,"
+            "priority,assigned_to,created_at,updated_at,version) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            rows,
+        )
+        self.store.connection.commit()
+        visible = self.alice_service.list_cases(limit=500)
+        self.assertEqual([case["case_id"] for case in visible], ["CASE-ALICE"])
+
+    def test_case_store_rejects_unknown_status_filter(self):
+        with self.assertRaisesRegex(CaseStoreError, "status filter"):
+            self.store.list_cases(limit=10, status="not-a-status")
+
 
 if __name__ == "__main__":
     unittest.main()

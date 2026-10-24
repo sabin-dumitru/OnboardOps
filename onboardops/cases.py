@@ -160,10 +160,30 @@ class CaseStore:
         result["request_data"] = json.loads(result.pop("request_json"))
         return result
 
-    def list_cases(self, limit: int = 100) -> list[dict[str, Any]]:
+    def list_cases(
+        self, limit: int = 100, *, requester_id: str | None = None,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return a bounded newest-first case page, optionally filtering before the limit."""
         if not 1 <= limit <= 500:
             raise CaseStoreError("Case list limit must be between 1 and 500.")
-        rows = self.connection.execute("SELECT case_id FROM cases ORDER BY updated_at DESC, case_id LIMIT ?", (limit,)).fetchall()
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        if requester_id is not None:
+            if not requester_id.strip() or len(requester_id) > 128:
+                raise CaseStoreError("Requester filter must be a valid identity.")
+            clauses.append("requester_id = ?")
+            parameters.append(requester_id)
+        if status is not None:
+            if status not in TRANSITIONS:
+                raise CaseStoreError("Unsupported case status filter.")
+            clauses.append("status = ?")
+            parameters.append(status)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self.connection.execute(
+            f"SELECT case_id FROM cases{where} ORDER BY updated_at DESC, case_id LIMIT ?",
+            (*parameters, limit),
+        ).fetchall()
         return [self.get_case(row["case_id"]) for row in rows]
 
     def transition(self, *, case_id: str, target: str, actor_id: str, expected_version: int | None = None) -> dict[str, Any]:
