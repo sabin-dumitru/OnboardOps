@@ -60,67 +60,67 @@ class CaseStore:
             raise
 
     def _initialize_connection(self) -> None:
-            self.connection.row_factory = sqlite3.Row
-            current_schema = int(self.connection.execute("PRAGMA user_version").fetchone()[0])
-            if current_schema > _SCHEMA_VERSION:
-                raise CaseStoreError(
-                    "Database schema is newer than this application supports; upgrade the app before opening it."
+        self.connection.row_factory = sqlite3.Row
+        current_schema = int(self.connection.execute("PRAGMA user_version").fetchone()[0])
+        if current_schema > _SCHEMA_VERSION:
+            raise CaseStoreError(
+                "Database schema is newer than this application supports; upgrade the app before opening it."
+            )
+        self.connection.execute("PRAGMA foreign_keys=ON")
+        self.connection.execute("PRAGMA busy_timeout=10000")
+        self.connection.executescript("""
+        CREATE TABLE IF NOT EXISTS cases (
+          case_id TEXT PRIMARY KEY,
+          lifecycle TEXT NOT NULL CHECK(lifecycle IN ('onboarding','offboarding','transfer','change')),
+          status TEXT NOT NULL CHECK(status IN ('draft','pending_approval','approved','rejected','in_progress','blocked','completed','cancelled')),
+          requester_id TEXT NOT NULL, summary TEXT NOT NULL, request_json TEXT NOT NULL,
+          priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
+          assigned_to TEXT,
+          created_at TEXT NOT NULL, updated_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS case_events (
+          event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          case_id TEXT NOT NULL REFERENCES cases(case_id), event_type TEXT NOT NULL,
+          actor_id TEXT NOT NULL, from_status TEXT, to_status TEXT,
+          metadata_json TEXT NOT NULL, occurred_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_cases_updated_at ON cases(updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_case_events_case ON case_events(case_id, event_id);
+        CREATE TABLE IF NOT EXISTS provider_approvals (
+          approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          case_id TEXT NOT NULL REFERENCES cases(case_id),
+          requester_id TEXT NOT NULL, approver_id TEXT NOT NULL,
+          provider TEXT NOT NULL, operation TEXT NOT NULL,
+          payload_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
+          approved_at TEXT NOT NULL, expires_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
+        );
+        """)
+        # Backward-compatible migrations for databases created by earlier demos.
+        existing_columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(cases)")}
+        if "priority" not in existing_columns:
+            self.connection.execute("ALTER TABLE cases ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'")
+        if "assigned_to" not in existing_columns:
+            self.connection.execute("ALTER TABLE cases ADD COLUMN assigned_to TEXT")
+        approval_columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(provider_approvals)")}
+        if "expires_at" not in approval_columns:
+            self.connection.execute("ALTER TABLE provider_approvals ADD COLUMN expires_at TEXT")
+            rows = self.connection.execute("SELECT approval_id, approved_at FROM provider_approvals").fetchall()
+            for approval in rows:
+                try:
+                    approved_at = datetime.fromisoformat(str(approval["approved_at"]).replace("Z", "+00:00"))
+                    if approved_at.tzinfo is None:
+                        approved_at = approved_at.replace(tzinfo=timezone.utc)
+                    expires_at = (approved_at.astimezone(timezone.utc) + _PROVIDER_APPROVAL_TTL).isoformat()
+                except (TypeError, ValueError):
+                    expires_at = "1970-01-01T00:00:00+00:00"
+                self.connection.execute(
+                    "UPDATE provider_approvals SET expires_at=? WHERE approval_id=?",
+                    (expires_at, approval["approval_id"]),
                 )
-            self.connection.execute("PRAGMA foreign_keys=ON")
-            self.connection.execute("PRAGMA busy_timeout=10000")
-            self.connection.executescript("""
-            CREATE TABLE IF NOT EXISTS cases (
-              case_id TEXT PRIMARY KEY,
-              lifecycle TEXT NOT NULL CHECK(lifecycle IN ('onboarding','offboarding','transfer','change')),
-              status TEXT NOT NULL CHECK(status IN ('draft','pending_approval','approved','rejected','in_progress','blocked','completed','cancelled')),
-              requester_id TEXT NOT NULL, summary TEXT NOT NULL, request_json TEXT NOT NULL,
-              priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
-              assigned_to TEXT,
-              created_at TEXT NOT NULL, updated_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1
-            );
-            CREATE TABLE IF NOT EXISTS case_events (
-              event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-              case_id TEXT NOT NULL REFERENCES cases(case_id), event_type TEXT NOT NULL,
-              actor_id TEXT NOT NULL, from_status TEXT, to_status TEXT,
-              metadata_json TEXT NOT NULL, occurred_at TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_cases_updated_at ON cases(updated_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_case_events_case ON case_events(case_id, event_id);
-            CREATE TABLE IF NOT EXISTS provider_approvals (
-              approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
-              case_id TEXT NOT NULL REFERENCES cases(case_id),
-              requester_id TEXT NOT NULL, approver_id TEXT NOT NULL,
-              provider TEXT NOT NULL, operation TEXT NOT NULL,
-              payload_json TEXT NOT NULL, fingerprint TEXT NOT NULL,
-              approved_at TEXT NOT NULL, expires_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
-            );
-            """)
-            # Backward-compatible migrations for databases created by earlier demos.
-            existing_columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(cases)")}
-            if "priority" not in existing_columns:
-                self.connection.execute("ALTER TABLE cases ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'")
-            if "assigned_to" not in existing_columns:
-                self.connection.execute("ALTER TABLE cases ADD COLUMN assigned_to TEXT")
-            approval_columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(provider_approvals)")}
-            if "expires_at" not in approval_columns:
-                self.connection.execute("ALTER TABLE provider_approvals ADD COLUMN expires_at TEXT")
-                rows = self.connection.execute("SELECT approval_id, approved_at FROM provider_approvals").fetchall()
-                for approval in rows:
-                    try:
-                        approved_at = datetime.fromisoformat(str(approval["approved_at"]).replace("Z", "+00:00"))
-                        if approved_at.tzinfo is None:
-                            approved_at = approved_at.replace(tzinfo=timezone.utc)
-                        expires_at = (approved_at.astimezone(timezone.utc) + _PROVIDER_APPROVAL_TTL).isoformat()
-                    except (TypeError, ValueError):
-                        expires_at = "1970-01-01T00:00:00+00:00"
-                    self.connection.execute(
-                        "UPDATE provider_approvals SET expires_at=? WHERE approval_id=?",
-                        (expires_at, approval["approval_id"]),
-                    )
-            # PRAGMA user_version is SQLite's durable schema-version marker. Future
-            # migrations must increment _SCHEMA_VERSION and run before advancing it.
-            self.connection.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
-            self.connection.commit()
+        # PRAGMA user_version is SQLite's durable schema-version marker. Future
+        # migrations must increment _SCHEMA_VERSION and run before advancing it.
+        self.connection.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+        self.connection.commit()
 
     def close(self) -> None:
         self.connection.close()
