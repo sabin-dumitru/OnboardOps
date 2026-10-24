@@ -5,6 +5,7 @@ import unittest
 from onboardops.auth import Actor, AuthorizationError, has_permission
 from onboardops.case_service import CaseService
 from onboardops.cases import CaseStore, CaseStoreError
+from onboardops.reporting import build_operations_report
 
 
 class CaseServiceAuthorizationTests(unittest.TestCase):
@@ -65,6 +66,12 @@ class CaseServiceAuthorizationTests(unittest.TestCase):
             Actor("local-demo", frozenset({"onboardops-demo"}), "demo"),
             "integrations:read", production_only=True,
         ))
+
+    def test_report_aggregates_only_cases_visible_to_actor(self):
+        report = build_operations_report(self.alice_service.list_cases())
+        self.assertEqual(report["total"], 1)
+        self.assertEqual(report["status_counts"], {"draft": 1})
+        self.assertNotIn("CASE-BOB", str(report))
 
 
 if __name__ == "__main__":
