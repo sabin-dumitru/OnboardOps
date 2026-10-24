@@ -70,7 +70,7 @@ with st.expander("Portfolio demo helpers", expanded=False):
 
 try:
     require_permission(actor,"cases:read")
-    cases=store.list_cases()
+    cases=store.list_cases(limit=500)
 except Exception as exc:
     show_error(exc)
     cases=[]
@@ -111,7 +111,21 @@ with tab_list:
                  (assignment_filter == "Assigned" and bool(c.get("assigned_to"))))
             and search_term.casefold() in (str(c["case_id"]) + " " + str(c["summary"])).casefold()
         ]
-        st.caption(f"Showing {len(visible_cases)} of {len(cases)} case(s).")
+        page_size = 25
+        total_pages = max(1, (len(visible_cases) + page_size - 1) // page_size)
+        if total_pages > 1:
+            page_col, info_col = st.columns([1, 4])
+            with page_col:
+                page_number = st.selectbox("Results page", list(range(1, total_pages + 1)), key="case_results_page")
+        else:
+            page_number = 1
+        page_start = (page_number - 1) * page_size
+        page_cases = visible_cases[page_start:page_start + page_size]
+        st.caption(
+            f"Showing {len(page_cases)} case(s) on page {page_number} of {total_pages}; "
+            f"{len(visible_cases)} match the filters out of {len(cases)} loaded case(s). "
+            "The list is capped at the 500 most recently updated records."
+        )
         if visible_cases:
             import csv
             from io import StringIO
@@ -128,8 +142,8 @@ with tab_list:
             st.dataframe([{"Case ID":c["case_id"],"Lifecycle":c["lifecycle"],"Status":c["status"],
                            "Priority":c.get("priority", "normal").title(),"Assignee":c.get("assigned_to") or "Unassigned",
                            "Summary":c["summary"],"Updated":c["updated_at"],"Version":c["version"]}
-                          for c in visible_cases],use_container_width=True,hide_index=True)
-            selected=st.selectbox("Open case",[c["case_id"] for c in visible_cases])
+                          for c in page_cases],use_container_width=True,hide_index=True)
+            selected=st.selectbox("Open case",[c["case_id"] for c in page_cases])
             case=store.get_case(selected)
         else:
             st.info("No cases match these filters. Clear the search or choose another status.")
