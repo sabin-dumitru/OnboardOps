@@ -8,7 +8,7 @@ This portfolio project was developed with AI assistance. The repository owner re
 
 OnboardOps standardises onboarding preparation for Windows and macOS. The Streamlit flow validates a synthetic request and generates a technician checklist plus a hardware allocation CSV. The integration foundation adds reusable Python adapters for Microsoft Graph / Intune, ServiceNow, Jira Cloud, Snipe-IT, Workday and GitHub. A separate Case Management page now stores synthetic cases and status history locally in SQLite, with a demo-only identity and a trusted-proxy role-checking seam.
 
-> **Honest scope:** provider adapters are implemented but have not been verified against live tenant environments. The Streamlit Integration Lab supports configured read-only lookups and offline write previews; live writes are not exposed in the UI until authentication and server-side RBAC are implemented. Writes default to dry-run. Do not use this project for production employee data or production changes.
+> **Honest scope:** provider adapters are implemented but have not been verified against live tenant environments. The Streamlit Integration Lab supports configured read-only lookups and offline write previews; live writes are not exposed in the UI. Case actions have role checks through the case service, but the trusted-proxy mode is not a bundled OIDC/SSO system and payload-bound approval is not a complete team authorization system. Writes default to dry-run. Do not use this project for production employee data or production changes.
 
 ## What it demonstrates
 
@@ -115,7 +115,7 @@ Credentials are passed into adapter constructors by application code; they are n
 
 The next production-oriented milestones are deliberately separate from the current local demo:
 
-1. Replace the trusted-proxy seam with reviewed OIDC integration and enforce case-level authorisation in the service layer.
+1. Replace the trusted-proxy seam with reviewed OIDC/SSO, independently verify identity propagation, and continue expanding record-level authorization tests. Keep every UI/API entry point behind CaseService; never expose raw CaseStore operations to untrusted callers.
 2. Introduce versioned migrations and PostgreSQL only alongside a concrete multi-user deployment requirement.
 3. Add a durable transactional outbox and provider-specific reconciliation for ambiguous write outcomes.
 4. Add structured redacted logs, retention/backup policy, and restore tests.
