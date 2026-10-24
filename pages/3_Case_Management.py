@@ -9,7 +9,7 @@ import streamlit as st
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from onboardops.ui_accessibility import accessibility_styles
-from onboardops.auth import AuthorizationError, require_permission, resolve_actor
+from onboardops.auth import AuthorizationError, has_permission, require_permission, resolve_actor
 from onboardops.case_access import visible_cases
 from onboardops.case_service import CaseService
 from onboardops.audit_view import describe_event
@@ -164,18 +164,19 @@ with tab_list:
                 st.json(case["request_data"],expanded=False)
             with right:
                 st.write("**Triage**")
-                with st.form(f"triage_{selected}"):
-                    priority_value = st.selectbox(
-                        "Priority", ["low", "normal", "high", "urgent"],
-                        index=["low", "normal", "high", "urgent"].index(case.get("priority", "normal")),
-                    )
-                    assignee_value = st.text_input(
-                        "Assigned technician (leave blank to unassign)",
-                        value=case.get("assigned_to") or "",
-                        max_chars=128,
-                    )
-                    triage_submitted = st.form_submit_button("Save triage")
-                if triage_submitted:
+                if has_permission(actor, "cases:transition"):
+                    with st.form(f"triage_{selected}"):
+                        priority_value = st.selectbox(
+                            "Priority", ["low", "normal", "high", "urgent"],
+                            index=["low", "normal", "high", "urgent"].index(case.get("priority", "normal")),
+                        )
+                        assignee_value = st.text_input(
+                            "Assigned technician (leave blank to unassign)",
+                            value=case.get("assigned_to") or "",
+                            max_chars=128,
+                        )
+                        triage_submitted = st.form_submit_button("Save triage")
+                    if triage_submitted:
                     try:
                         require_permission(actor, "cases:transition")
                         service.update_triage(
