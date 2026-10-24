@@ -42,6 +42,12 @@ db_path=os.environ.get("ONBOARDOPS_CASE_DB",str(ROOT/"data"/"onboardops_cases.sq
 store=CaseStore(db_path)
 st.info("Local demo stores synthetic cases in SQLite on this machine. Single-user demo only. Provider writes are disabled.")
 st.caption(f"Identity: {actor.subject} · Mode: {actor.mode} · Roles: {', '.join(sorted(actor.roles))}")
+def show_error(exc):
+    if isinstance(exc,(AuthorizationError,CaseStoreError,WorkflowError,ValueError)):
+        st.error(str(exc))
+    else:
+        st.error("Operation failed; sensitive details were withheld.")
+
 # Demo fixtures are explicitly synthetic and use dedicated fixture identities.
 # The action is idempotent: existing sample IDs are left untouched.
 with st.expander("Portfolio demo helpers", expanded=False):
@@ -81,12 +87,6 @@ with st.expander("Portfolio demo helpers", expanded=False):
         except Exception as exc:
             show_error(exc)
 
-
-def show_error(exc):
-    if isinstance(exc,(AuthorizationError,CaseStoreError,WorkflowError,ValueError)):
-        st.error(str(exc))
-    else:
-        st.error("Operation failed; sensitive details were withheld.")
 
 try:
     require_permission(actor,"cases:read")
