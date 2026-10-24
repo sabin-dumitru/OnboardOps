@@ -3,6 +3,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from scripts.preflight import run_preflight
@@ -70,9 +71,10 @@ class PreflightTests(unittest.TestCase):
 
     def test_preflight_checks_existing_case_database_read_only(self):
         database = self.root / "data" / "cases.sqlite3"
-        with sqlite3.connect(database) as connection:
+        with closing(sqlite3.connect(database)) as connection:
             connection.execute("CREATE TABLE cases (case_id TEXT PRIMARY KEY)")
             connection.execute("CREATE TABLE case_events (event_id INTEGER PRIMARY KEY)")
+            connection.commit()
         checks = run_preflight(self.root, {
             "ONBOARDOPS_AUTH_MODE": "demo",
             "ONBOARDOPS_CASE_DB": str(database),
