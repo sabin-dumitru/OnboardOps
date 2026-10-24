@@ -30,5 +30,22 @@ class AuditViewTests(unittest.TestCase):
         self.assertEqual(event["details"], "Status: draft → pending_approval")
 
 
+
+    def test_provider_approval_events_have_human_readable_labels_without_payloads(self):
+        approved = describe_event({
+            "event_type": "provider_action.approved", "actor_id": "approver",
+            "metadata": {"approval_id": 12, "provider": "github", "operation": "create_issue",
+                         "fingerprint": "hash-value", "token": "must-not-render"},
+        })
+        consumed = describe_event({
+            "event_type": "provider_action.approval_consumed", "actor_id": "operator",
+            "metadata": {"approval_id": 12, "payload": {"title": "private payload"}},
+        })
+        self.assertEqual(approved["event"], "Provider action approved")
+        self.assertEqual(consumed["event"], "Provider approval consumed")
+        self.assertEqual(approved["details"], "Provider action metadata is available in the approval ledger")
+        self.assertNotIn("must-not-render", str(approved))
+        self.assertNotIn("private payload", str(consumed))
+
 if __name__ == "__main__":
     unittest.main()
