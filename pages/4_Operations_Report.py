@@ -82,7 +82,7 @@ st.subheader("Aging active cases · 7+ days")
 if report["aging_cases"]:
     st.dataframe([{
         "Case ID": c["case_id"], "Age (days)": c["age_days"], "Status": c["status"],
-        "Priority": c["priority"].title(), "Assignee": c["assigned_to"] or "Unassigned",
+        "Lifecycle": c["lifecycle"], "Priority": c["priority"].title(), "Assignee": c["assigned_to"] or "Unassigned",
         "Created (UTC)": c["created_at"],
     } for c in report["aging_cases"]], use_container_width=True, hide_index=True)
 else:
@@ -95,9 +95,9 @@ writer = csv.DictWriter(export, fieldnames=[
 writer.writeheader()
 writer.writerows({
     "case_id": c["case_id"], "status": c["status"], "lifecycle": c["lifecycle"],
-    "priority": c.get("priority", "normal"), "assigned_to": c.get("assigned_to") or "",
+    "priority": c["priority"], "assigned_to": c["assigned_to"],
     "age_days": c["age_days"], "created_at": c["created_at"],
-} for c in report["aging_cases"] for c in [next((item for item in cases if item["case_id"] == c["case_id"]), c)])
+} for c in report["aging_cases"])
 st.download_button("Export aging cases (.csv)", export.getvalue(), file_name="onboardops_aging_cases.csv", mime="text/csv")
 st.caption(f"Identity: {actor.subject} · Read-only report · Showing up to 500 most recently updated cases")
 store.close()
