@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from onboardops.auth import Actor, require_permission
+from onboardops.auth import Actor, AuthorizationError, require_permission
 from onboardops.case_access import can_read_case, visible_cases
 from onboardops.cases import CaseStore, CaseStoreError
+from onboardops.security_events import log_authorization_denial
 
 
 class CaseService:
@@ -19,18 +20,35 @@ class CaseService:
         self._store = store
         self._actor = actor
 
+    def _require(self, permission: str) -> None:
+        try:
+            require_permission(self._actor, permission)
+        except AuthorizationError:
+            log_authorization_denial(
+                self._actor, permission=permission, reason="permission_denied",
+            )
+            raise
+
     def _require_visible_case(self, case_id: str) -> dict[str, Any]:
         try:
             case = self._store.get_case(case_id)
         except CaseStoreError as exc:
             # Return the same message for missing and inaccessible IDs.
+            log_authorization_denial(
+                self._actor, permission="cases:read", reason="case_not_visible",
+                resource_id=case_id,
+            )
             raise CaseStoreError("Case not found or access denied.") from exc
         if not can_read_case(self._actor, case):
+            log_authorization_denial(
+                self._actor, permission="cases:read", reason="case_not_visible",
+                resource_id=case_id,
+            )
             raise CaseStoreError("Case not found or access denied.")
         return case
 
     def list_cases(self, *, limit: int = 500) -> list[dict[str, Any]]:
-        require_permission(self._actor, "cases:read")
+        self._require("cases:read")
         roles = self._actor.roles
         if self._actor.is_demo or roles & frozenset({"onboardops-admin", "onboardops-operator"}):
             candidates = self._store.list_cases(limit=limit)
@@ -53,17 +71,17 @@ class CaseService:
         return visible_cases(self._actor, candidates)
 
     def get_case(self, case_id: str) -> dict[str, Any]:
-        require_permission(self._actor, "cases:read")
+        self._require("cases:read")
         return self._require_visible_case(case_id)
 
     def list_events(self, case_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
-        require_permission(self._actor, "cases:read")
+        self._require("cases:read")
         self._require_visible_case(case_id)
         return self._store.list_events(case_id, limit=limit)
 
     def create_case(self, *, case_id: str, lifecycle: str, summary: str,
                     request_data: dict[str, Any] | None = None) -> dict[str, Any]:
-        require_permission(self._actor, "cases:create")
+        self._require("cases:create")
         return self._store.create_case(
             case_id=case_id,
             lifecycle=lifecycle,
@@ -74,7 +92,7 @@ class CaseService:
 
     def transition(self, *, case_id: str, target: str,
                    expected_version: int | None = None) -> dict[str, Any]:
-        require_permission(self._actor, "cases:transition")
+        self._require("cases:transition")
         self._require_visible_case(case_id)
         return self._store.transition(
             case_id=case_id,
@@ -84,7 +102,7 @@ class CaseService:
         )
 
     def approve_case(self, *, case_id: str, expected_version: int | None = None) -> dict[str, Any]:
-        require_permission(self._actor, "approvals:review")
+        self._require("approvals:review")
         self._require_visible_case(case_id)
         return self._store.approve_case(
             case_id=case_id,
@@ -95,7 +113,7 @@ class CaseService:
     def update_triage(self, *, case_id: str, priority: str,
                       assigned_to: str | None,
                       expected_version: int | None = None) -> dict[str, Any]:
-        require_permission(self._actor, "cases:transition")
+        self._require("cases:transition")
         self._require_visible_case(case_id)
         return self._store.update_triage(
             case_id=case_id,
