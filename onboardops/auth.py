@@ -56,3 +56,12 @@ def require_permission(actor: Actor, permission: str, *, production_only: bool =
         raise AuthorizationError("This action is disabled in local demo mode.")
     if not any(permission in _ROLE_PERMISSIONS.get(role, frozenset()) for role in actor.roles):
         raise AuthorizationError(f"Your assigned role does not permit {permission}.")
+
+
+
+def require_integration_read(headers: dict[str, str] | None = None, *,
+                             environ: dict[str, str] | None = None) -> Actor:
+    """Resolve and enforce permission for live read-only provider lookups."""
+    actor = resolve_actor(headers, environ=environ)
+    require_permission(actor, "integrations:read", production_only=True)
+    return actor

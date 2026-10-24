@@ -12,7 +12,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from onboardops.auth import AuthorizationError, require_permission, resolve_actor
+from onboardops.auth import AuthorizationError, require_integration_read
 from onboardops.ui_accessibility import accessibility_styles
 from onboardops.integrations import (  # noqa: E402
     GitHubClient, IntegrationError, JiraClient, MicrosoftGraphClient,
@@ -49,8 +49,7 @@ try:
 except Exception:
     pass
 try:
-    integration_actor = resolve_actor(headers)
-    require_permission(integration_actor, "integrations:read", production_only=True)
+    require_integration_read(headers)
     live_lookup_allowed = True
 except AuthorizationError:
     live_lookup_allowed = False
@@ -58,6 +57,15 @@ except AuthorizationError:
         "Live provider lookups are disabled for the local demo identity. "
         "Use a reviewed trusted-proxy deployment with an authorised integration-reader role."
     )
+
+
+def enforce_live_lookup_access() -> None:
+    """Re-check permission at the action site; a disabled widget is not authorization."""
+    try:
+        require_integration_read(headers)
+    except AuthorizationError:
+        st.error("Live provider lookup is not authorised for this identity.")
+        st.stop()
 
 
 def setting(name: str) -> str:
@@ -123,6 +131,7 @@ with left:
         st.caption("Requires application permissions and admin consent. Returns selected directory fields only.")
         graph_upn = st.text_input("User ID or user principal name", placeholder="synthetic.user@example.invalid")
         if st.button("Look up user", disabled=not configured(*graph_vars) or not live_lookup_allowed, key="graph_user"):
+            enforce_live_lookup_access()
             try:
                 client = MicrosoftGraphClient(*(setting(v) for v in graph_vars))
                 result = client.get_user(graph_upn)
@@ -136,7 +145,8 @@ with left:
         st.subheader("Microsoft Intune · Managed devices")
         st.caption("Read-only, bounded page. Requires an active Intune licence and consented permissions.")
         device_limit = st.slider("Maximum devices to retrieve", min_value=1, max_value=50, value=10)
-        if st.button("List managed devices", disabled=not configured(*graph_vars), key="intune_devices"):
+        if st.button("List managed devices", disabled=not configured(*graph_vars) or not live_lookup_allowed, key="intune_devices"):
+            enforce_live_lookup_access()
             try:
                 client = MicrosoftGraphClient(*(setting(v) for v in graph_vars))
                 rows = client.list_managed_devices(top=device_limit)
@@ -152,6 +162,7 @@ with left:
         st.subheader("ServiceNow · Incident lookup")
         correlation_id = st.text_input("Correlation ID", value="DEMO-CASE-001")
         if st.button("Find incidents", disabled=not configured(*snow_vars) or not live_lookup_allowed, key="snow_lookup"):
+            enforce_live_lookup_access()
             try:
                 client = ServiceNowClient(setting(snow_vars[0]), setting(snow_vars[1]))
                 show_json(client.find_incidents_by_correlation_id(correlation_id))
@@ -163,6 +174,7 @@ with right:
         st.subheader("Jira Cloud · Issue lookup")
         issue_key = st.text_input("Issue key", placeholder="DEMO-123")
         if st.button("Look up issue", disabled=not configured(*jira_vars) or not live_lookup_allowed, key="jira_lookup"):
+            enforce_live_lookup_access()
             try:
                 client = JiraClient(*(setting(v) for v in jira_vars))
                 issue = client.get_issue(issue_key)
@@ -177,6 +189,7 @@ with right:
         st.subheader("Snipe-IT · Asset search")
         asset_search = st.text_input("Asset tag, model or search term", placeholder="DEMO-LAPTOP")
         if st.button("Search assets", disabled=not configured(*snipe_vars) or not live_lookup_allowed, key="snipe_search"):
+            enforce_live_lookup_access()
             try:
                 client = SnipeITClient(setting(snipe_vars[0]), setting(snipe_vars[1]))
                 rows = client.search_hardware(asset_search, limit=50)
@@ -191,6 +204,7 @@ with right:
         st.caption("The API root, endpoint schema and permissions must match your tenant.")
         workday_path = st.text_input("Relative endpoint path", value="/workers")
         if st.button("Read Workday endpoint", disabled=not configured(*workday_vars) or not live_lookup_allowed, key="workday_read"):
+            enforce_live_lookup_access()
             try:
                 client = WorkdayClient(setting(workday_vars[0]), setting(workday_vars[1]))
                 result = client.get_workers(endpoint_path=workday_path)

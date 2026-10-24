@@ -1,6 +1,6 @@
 import unittest
 
-from onboardops.auth import AuthorizationError, require_permission, resolve_actor
+from onboardops.auth import AuthorizationError, require_integration_read, require_permission, resolve_actor
 
 
 class IntegrationReadAuthorizationTests(unittest.TestCase):
@@ -30,6 +30,19 @@ class IntegrationReadAuthorizationTests(unittest.TestCase):
                     )
                     require_permission(actor, "integrations:read", production_only=True)
 
+
+    def test_live_lookup_entry_point_re_resolves_and_enforces_permission(self):
+        demo_env = {"ONBOARDOPS_AUTH_MODE": "demo"}
+        with self.assertRaises(AuthorizationError):
+            require_integration_read(environ=demo_env)
+
+        proxy_env = {"ONBOARDOPS_AUTH_MODE": "trusted_proxy", "ONBOARDOPS_TRUSTED_AUTH_PROXY": "true"}
+        actor = require_integration_read(
+            {"X-Auth-Request-User": "operator@example.invalid",
+             "X-Auth-Request-Groups": "onboardops-operator"},
+            environ=proxy_env,
+        )
+        self.assertEqual(actor.subject, "operator@example.invalid")
 
 if __name__ == "__main__":
     unittest.main()
