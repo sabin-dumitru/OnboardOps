@@ -9,6 +9,21 @@ from onboardops.auth import Actor, require_permission
 from onboardops.cases import CaseStore
 from onboardops.workflow import ActionLedger, Approval, WorkflowError, action_fingerprint
 from onboardops.integrations.github import GitHubClient
+from onboardops.integrations.base import IntegrationError
+
+
+def _failure_status(exc: Exception) -> str:
+    """Distinguish known pre-write/rejection failures from uncertain remote outcomes."""
+    if isinstance(exc, ValueError):
+        return "failed"
+    if isinstance(exc, IntegrationError) and exc.code in {
+        "approval_required", "approval_invalid", "provider_rejected_request",
+    }:
+        return "failed"
+    # Network errors, timeouts, 5xx responses and invalid success responses can
+    # occur after the provider accepted the request, so they require reconciliation.
+    return "unknown"
+
 
 def github_issue_payload(repository: str, title: str, body: str) -> dict[str, Any]:
     return {"repository": repository, "title": title.strip(), "body": body}
@@ -41,14 +56,21 @@ def create_github_followup(*, store: CaseStore, approval_id: int, actor: Actor,
         raise WorkflowError("Approval does not match the exact action payload.")
     key = f"{case_id}:github:create_issue:{approval_id}"
     ledger.begin_action(idempotency_key=key, provider="github", operation="create_issue")
-    # Consume before network I/O. A crash or timeout requires reconciliation, not a blind retry.
+    # A local approval/ledger failure is known to have occurred before provider I/O.
     try:
         store.consume_provider_approval(approval_id, expected_fingerprint=fingerprint)
+    except Exception:
+        ledger.finish_action(key, status="failed")
+        raise
+
+    # Once the provider client is entered, classify known rejections separately from
+    # transport/response failures where the remote write may already have succeeded.
+    try:
         result = client.create_issue(repository=repository, title=title, body=body, dry_run=False,
                                      approval=Approval(record["requester_id"], record["approver_id"],
                                                        record["fingerprint"], record["approved_at"]))
-    except Exception:
-        ledger.finish_action(key, status="unknown")
+    except Exception as exc:
+        ledger.finish_action(key, status=_failure_status(exc))
         raise
     external_id = str(result.get("number", "")) or None
     ledger.finish_action(key, status="succeeded", external_id=external_id)
