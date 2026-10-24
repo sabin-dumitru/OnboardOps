@@ -92,13 +92,16 @@ def run_preflight(root: str | Path | None = None,
                 ))
             else:
                 uri = database_path.resolve().as_uri() + "?mode=ro"
-                with sqlite3.connect(uri, uri=True, timeout=1) as connection:
+                connection = sqlite3.connect(uri, uri=True, timeout=1)
+                try:
                     integrity = str(connection.execute("PRAGMA integrity_check").fetchone()[0])
                     table_names = {
                         row[0] for row in connection.execute(
                             "SELECT name FROM sqlite_master WHERE type='table'"
                         ).fetchall()
                     }
+                finally:
+                    connection.close()
                 schema_ok = not table_names or {"cases", "case_events"}.issubset(table_names)
                 ok = integrity == "ok" and schema_ok
                 if not table_names and integrity == "ok":
