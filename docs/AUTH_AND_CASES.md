@@ -2,7 +2,7 @@
 
 ## Local synthetic case management
 
-Run `python -m streamlit run app.py`, then select **Case management** in the page navigation. The page stores synthetic cases in SQLite at `data/onboardops_cases.sqlite3` by default. Set `ONBOARDOPS_CASE_DB` to choose another path. Case status changes are recorded as events, and a version check prevents stale updates from silently overwriting a newer case. Case request data must be a JSON object and is capped at 64 KiB after secret-key redaction to prevent unexpectedly large local records.
+Run `python -m streamlit run app.py`, then select **Case management** in the page navigation. The page stores synthetic cases in SQLite at `data/onboardops_cases.sqlite3` by default. Set `ONBOARDOPS_CASE_DB` to choose another path. Case status changes are recorded as events, and a version check prevents stale updates from silently overwriting a newer case. Case request data must be a standards-compliant JSON object and is capped at 64 KiB after secret-key redaction to prevent unexpectedly large local records. Non-standard numeric values such as NaN and Infinity are rejected at persistence, approval-fingerprint, audit-metadata, and export boundaries.
 
 The demo identity can create and transition synthetic cases only. Never use real employee data in this portfolio demo.
 

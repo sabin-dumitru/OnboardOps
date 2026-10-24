@@ -78,5 +78,9 @@ class CaseExportTests(unittest.TestCase):
         self.assertEqual(exported["apiKey"], "[REDACTED]")
         self.assertEqual(exported["privateKey"], "[REDACTED]")
 
+    def test_export_renderer_rejects_non_standard_json_numbers(self):
+        with self.assertRaises(ValueError):
+            render_case_export_json({"schema_version": 1, "score": float("nan")})
+
 if __name__ == "__main__":
     unittest.main()

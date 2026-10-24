@@ -253,5 +253,22 @@ class CaseStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(CaseStoreError, "limit"):
             self.store.list_events("CASE-EVENT-LIMIT", limit=501)
 
+    def test_case_request_data_rejects_non_standard_nan_values(self):
+        with self.assertRaisesRegex(CaseStoreError, "valid JSON-compatible"):
+            self.store.create_case(
+                case_id="CASE-NAN-1", lifecycle="onboarding", requester_id="alice",
+                summary="Reject NaN", request_data={"numeric": float("nan")},
+            )
+
+    def test_provider_approval_rejects_non_object_and_non_standard_payloads(self):
+        self.store.create_case(case_id="CASE-NAN-2", lifecycle="onboarding",
+                               requester_id="alice", summary="Approval JSON boundary")
+        base = dict(case_id="CASE-NAN-2", requester_id="alice", approver_id="bob",
+                    provider="github", operation="create_issue", fingerprint="fingerprint-demo")
+        with self.assertRaisesRegex(CaseStoreError, "JSON object"):
+            self.store.record_provider_approval(**base, payload=["not", "an", "object"])
+        with self.assertRaisesRegex(CaseStoreError, "valid JSON-compatible"):
+            self.store.record_provider_approval(**base, payload={"score": float("inf")})
+
 if __name__ == "__main__":
     unittest.main()

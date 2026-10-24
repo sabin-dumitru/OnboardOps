@@ -45,8 +45,15 @@ class WorkflowCase:
 
 
 def action_fingerprint(provider: str, operation: str, payload: dict[str, Any]) -> str:
-    canonical = json.dumps({"provider": provider, "operation": operation, "payload": payload},
-                           sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    if not isinstance(payload, dict):
+        raise WorkflowError("Action payload must be a JSON object.")
+    try:
+        canonical = json.dumps(
+            {"provider": provider, "operation": operation, "payload": payload},
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False,
+        )
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise WorkflowError("Action payload must be valid JSON-compatible data.") from exc
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -129,13 +136,23 @@ class ActionLedger:
                      metadata: dict[str, Any] | None = None) -> str:
         if not event_type.strip() or not case_id.strip() or not actor_id.strip():
             raise WorkflowError("Audit event type, case ID and actor ID are required.")
-        safe = json.dumps(self._safe_metadata(metadata or {}), sort_keys=True, separators=(",", ":"))
+        if metadata is not None and not isinstance(metadata, dict):
+            raise WorkflowError("Audit metadata must be a JSON object.")
+        try:
+            safe = json.dumps(
+                self._safe_metadata(metadata or {}),
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise WorkflowError("Audit metadata must be valid JSON-compatible data.") from exc
         prior = self.connection.execute("SELECT event_hash FROM audit_events ORDER BY sequence DESC LIMIT 1").fetchone()
         previous_hash = prior["event_hash"] if prior else "GENESIS"
         occurred = datetime.now(timezone.utc).isoformat()
         fields = {"occurred_at": occurred, "event_type": event_type, "case_id": case_id,
                   "actor_id": actor_id, "metadata_json": safe, "previous_hash": previous_hash}
-        event_hash = hashlib.sha256(json.dumps(fields, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        event_hash = hashlib.sha256(json.dumps(fields, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
         self.connection.execute("INSERT INTO audit_events (occurred_at,event_type,case_id,actor_id,metadata_json,previous_hash,event_hash) VALUES (?,?,?,?,?,?,?)",
             (occurred, event_type, case_id, actor_id, safe, previous_hash, event_hash))
         return event_hash
@@ -146,7 +163,7 @@ class ActionLedger:
             fields = {"occurred_at": row["occurred_at"], "event_type": row["event_type"],
                       "case_id": row["case_id"], "actor_id": row["actor_id"],
                       "metadata_json": row["metadata_json"], "previous_hash": previous_hash}
-            expected = hashlib.sha256(json.dumps(fields, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            expected = hashlib.sha256(json.dumps(fields, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
             if row["previous_hash"] != previous_hash or row["event_hash"] != expected:
                 return False
             previous_hash = row["event_hash"]
