@@ -14,6 +14,7 @@ _CASE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
 _LIFECYCLES = {"onboarding", "offboarding", "transfer", "change"}
 _MAX_REQUEST_DATA_BYTES = 64 * 1024
 _PROVIDER_APPROVAL_TTL = timedelta(minutes=15)
+_SCHEMA_VERSION = 1
 
 class CaseStoreError(ValueError):
     pass
@@ -53,6 +54,12 @@ class CaseStore:
                 os.close(descriptor)
         self.connection = sqlite3.connect(self.database_path, timeout=10)
         self.connection.row_factory = sqlite3.Row
+        current_schema = int(self.connection.execute("PRAGMA user_version").fetchone()[0])
+        if current_schema > _SCHEMA_VERSION:
+            self.connection.close()
+            raise CaseStoreError(
+                "Database schema is newer than this application supports; upgrade the app before opening it."
+            )
         self.connection.execute("PRAGMA foreign_keys=ON")
         self.connection.execute("PRAGMA busy_timeout=10000")
         self.connection.executescript("""
@@ -104,6 +111,9 @@ class CaseStore:
                     "UPDATE provider_approvals SET expires_at=? WHERE approval_id=?",
                     (expires_at, approval["approval_id"]),
                 )
+        # PRAGMA user_version is SQLite's durable schema-version marker. Future
+        # migrations must increment _SCHEMA_VERSION and run before advancing it.
+        self.connection.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
         self.connection.commit()
 
     def close(self) -> None:

@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import tempfile
 import unittest
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
@@ -284,6 +285,31 @@ class CaseStoreTests(unittest.TestCase):
             self.assertEqual(store.database_path, str(database))
         finally:
             store.close()
+
+    def test_schema_version_is_recorded_and_future_version_fails_closed(self):
+        self.assertEqual(
+            self.store.connection.execute("PRAGMA user_version").fetchone()[0], 1,
+        )
+        future_path = os.path.join(self.temp.name, "future-schema.sqlite3")
+        future_store = CaseStore(future_path)
+        future_store.close()
+        with sqlite3.connect(future_path) as connection:
+            connection.execute("PRAGMA user_version = 999")
+        with self.assertRaisesRegex(CaseStoreError, "newer than this application"):
+            CaseStore(future_path)
+        with sqlite3.connect(future_path) as connection:
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 999)
+
+    def test_reopening_migrated_database_keeps_schema_version_and_data(self):
+        self.store.create_case(
+            case_id="CASE-SCHEMA-VERSION", lifecycle="onboarding",
+            requester_id="alice", summary="Schema version persistence",
+        )
+        self.store.close()
+        self.store = CaseStore(self.path)
+        self.assertEqual(self.store.connection.execute("PRAGMA user_version").fetchone()[0], 1)
+        self.assertEqual(self.store.get_case("CASE-SCHEMA-VERSION")["summary"],
+                         "Schema version persistence")
 
 if __name__ == "__main__":
     unittest.main()
