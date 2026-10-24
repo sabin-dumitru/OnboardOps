@@ -20,3 +20,16 @@ The container runs as a non-root user with a read-only root filesystem, dropped 
 The service binds only to `127.0.0.1` on the host. Do not change this to a public interface or expose the app to a network: the default identity is a local demo identity and is not suitable for shared or production access. Use synthetic data only.
 
 To run the checks without Docker, follow the README quick start and test commands.
+
+
+## Repeatable presentation reset
+
+The **Load synthetic sample cases** button is intentionally additive: it never overwrites existing fixture history. To reset only the four fixed sample cases before a fresh presentation, stop the app and run the command against the same database path:
+
+```sh
+docker compose stop onboardops
+docker compose run --rm onboardops python scripts/reset_demo_cases.py --confirm
+docker compose up -d onboardops
+```
+
+The command requires `--confirm` and deletes only the fixed `CASE-SAMPLE-1001` through `CASE-SAMPLE-1004` fixture records and their case-event/approval rows. Other cases are preserved. It does not clear the whole database or reset provider action ledgers. In a Python environment, run `python scripts/reset_demo_cases.py --confirm` with `ONBOARDOPS_CASE_DB` set to the intended demo database. Use synthetic data only.
