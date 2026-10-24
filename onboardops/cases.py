@@ -393,12 +393,19 @@ class CaseStore:
             raise
         return self.get_case(case_id)
 
-    def list_events(self, case_id: str) -> list[dict[str, Any]]:
+    def list_events(self, case_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
+        """Return the most recent bounded event history, in chronological order."""
+        if not 1 <= limit <= 500:
+            raise CaseStoreError("Event history limit must be between 1 and 500.")
         if not self.connection.execute("SELECT 1 FROM cases WHERE case_id=?", (case_id,)).fetchone():
             raise CaseStoreError("Case not found.")
         rows = self.connection.execute(
-            "SELECT event_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at FROM case_events WHERE case_id=? ORDER BY event_id",
-            (case_id,)).fetchall()
+            "SELECT event_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at "
+            "FROM (SELECT event_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at "
+            "FROM case_events WHERE case_id=? ORDER BY event_id DESC LIMIT ?) "
+            "ORDER BY event_id ASC",
+            (case_id, limit),
+        ).fetchall()
         events = [dict(row) for row in rows]
         for event in events:
             event["metadata"] = json.loads(event.pop("metadata_json"))
