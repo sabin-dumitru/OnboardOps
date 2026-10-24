@@ -62,3 +62,8 @@ Do not combine these into one large refactor. Each boundary should have a small 
 The case queue supports priority (low, normal, high, urgent) and technician assignment, with filters for priority and assigned/unassigned work. Summary metrics highlight active urgent/high-priority cases and unassigned active work. Changes are version-checked and written to the case event history. Existing SQLite demo databases are migrated in place with conservative defaults (normal priority, no assignee).
 
 This is a local single-user workflow feature, not a paging system or an SLA engine. Assignment is a text identity field and is not proof that the named technician is authenticated or available. The interface continues to use role checks and synthetic demo data.
+
+
+## Operations reporting
+
+The Operations Report page aggregates local case metadata into status, lifecycle and priority distributions, active/unassigned/high-priority counts, and a seven-day aging view. Aggregation lives in a pure helper with deterministic tests and does not include request payloads in report rows. Reports cover up to the 500 most recently updated cases and aging is a triage signal only, not an SLA measurement. The page is read-only and uses the same case-read permission as the case queue.
