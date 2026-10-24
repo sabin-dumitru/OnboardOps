@@ -20,7 +20,7 @@ This matrix uses selected concepts from the [OWASP Application Security Verifica
 | Backup and recovery | SQLite online backup, integrity check, overwrite protection, Compose-aware runbook | Backup utility tests and documented manual restore procedure | **Partial.** A full disaster-recovery exercise, tested recovery objectives, and backup of separately configured action ledgers are not claimed. |
 | Container runtime | Non-root user, read-only root filesystem, dropped capabilities, no-new-privileges, localhost-only host binding, writable named volumes | Docker Compose CI smoke test, health endpoint, preflight, synthetic case persistence across restart | **Implemented for the supported local Compose demo.** Not a production hosting baseline without environment-specific review. |
 | Supply chain | SHA-pinned GitHub Actions, Python test matrix, CodeQL, Dependabot configuration | GitHub Actions runs | **Partial.** No release provenance/SBOM attestation, signed release process, or dependency lockfile. |
-| Accessibility | Shared visible-focus, forced-colors, and reduced-motion styles | Accessibility tests check style rules are present | **Partial.** No browser-based keyboard, screen-reader, zoom, focus-order, or contrast audit has been performed. |
+| Accessibility | Shared visible-focus, forced-colors, and reduced-motion styles; semantic H1 page titles on the primary pages | Accessibility tests check style rules and page-title markup; Streamlit AppTest smoke tests cover uncaught rendering exceptions | **Partial.** No browser-based keyboard, screen-reader, zoom, focus-order, or measured contrast audit has been performed. |
 
 ## Selected ASVS concepts
 
