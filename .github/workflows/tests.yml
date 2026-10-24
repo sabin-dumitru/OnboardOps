@@ -41,10 +41,38 @@ jobs:
       - name: Exercise offline integration demo
         run: python scripts/integration_demo.py
 
-  docker-build:
+  docker-compose-smoke:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Build local demo container
-        run: docker build --tag onboardops-demo:ci .
+      - name: Start hardened Compose demo
+        run: docker compose up -d --build
+      - name: Wait for Streamlit health endpoint
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8501/_stcore/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+      - name: Check runtime preflight and writable mounts
+        run: docker compose exec -T onboardops python scripts/preflight.py
+      - name: Create a synthetic case in the mounted database
+        run: |
+          docker compose exec -T onboardops python -c 'import os; from onboardops.cases import CaseStore; store=CaseStore(os.environ["ONBOARDOPS_CASE_DB"]); store.create_case(case_id="CASE-CI-100", lifecycle="onboarding", requester_id="ci-smoke", summary="Synthetic container smoke test", request_data={"synthetic": True}); store.close()'
+      - name: Restart container and verify persisted case
+        run: |
+          docker compose restart onboardops
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8501/_stcore/health; then
+              break
+            fi
+            sleep 2
+          done
+          docker compose exec -T onboardops python -c 'import os; from onboardops.cases import CaseStore; store=CaseStore(os.environ["ONBOARDOPS_CASE_DB"]); case=store.get_case("CASE-CI-100"); assert case["request_data"]["synthetic"] is True; store.close()'
+      - name: Stop demo and remove CI volumes
+        if: always()
+        run: docker compose down --volumes
