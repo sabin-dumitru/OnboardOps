@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 from onboardops.ui_accessibility import accessibility_styles
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.cases import CaseStore
+from onboardops.case_service import CaseService
 from onboardops.csv_safety import safe_csv_row
 from onboardops.reporting import build_operations_report
 
@@ -48,11 +49,13 @@ except AuthorizationError as exc:
 
 db_path = os.environ.get("ONBOARDOPS_CASE_DB", str(ROOT / "data" / "onboardops_cases.sqlite3"))
 store = CaseStore(db_path)
+service = CaseService(store, actor)
 try:
-    cases = store.list_cases(limit=500)
+    cases = service.list_cases(limit=500)
     report = build_operations_report(cases)
 except Exception:
-    st.error("Report could not be generated. Sensitive details were withheld.")
+    store.close()
+    st.error("Report could not be generated or authorised. Sensitive details were withheld.")
     st.stop()
 
 metrics = st.columns(5)
@@ -154,5 +157,5 @@ writer.writerows(safe_csv_row({
     "age_days": c["age_days"], "created_at": c["created_at"],
 }) for c in report["aging_cases"])
 st.download_button("Export aging cases (.csv)", export.getvalue(), file_name="onboardops_aging_cases.csv", mime="text/csv")
-st.caption(f"Identity: {actor.subject} · Read-only report · Showing up to 500 most recently updated cases")
+st.caption(f"Identity: {actor.subject} · Read-only report · Showing up to 500 cases visible to your role")
 store.close()
