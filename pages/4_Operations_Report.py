@@ -28,7 +28,7 @@ st.markdown("""
 [data-testid="stMetric"] {background: #111c2e; border: 1px solid #263852; border-radius: 12px; padding: .85rem;}
 </style>
 <div class="ops-eyebrow">WORKSPACE · REPORTING</div>
-<div class="ops-title">Operations report</div>
+<h1 class="ops-title">Operations report</h1>
 <div class="ops-subtitle">A read-only snapshot of workload, approval waiting time, stale work, prioritisation, and aging cases.</div>
 """, unsafe_allow_html=True)
 st.markdown(accessibility_styles(), unsafe_allow_html=True)
