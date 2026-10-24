@@ -20,9 +20,12 @@ class CaseService:
         self._actor = actor
 
     def _require_visible_case(self, case_id: str) -> dict[str, Any]:
-        case = self._store.get_case(case_id)
+        try:
+            case = self._store.get_case(case_id)
+        except CaseStoreError as exc:
+            # Return the same message for missing and inaccessible IDs.
+            raise CaseStoreError("Case not found or access denied.") from exc
         if not can_read_case(self._actor, case):
-            # Avoid disclosing whether an inaccessible case ID exists.
             raise CaseStoreError("Case not found or access denied.")
         return case
 
