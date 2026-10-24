@@ -43,6 +43,7 @@ def build_operations_report(cases: Iterable[dict[str, Any]], *, now: datetime | 
         age_days = max(0, (current - created).total_seconds() / 86400)
         if age_days >= 7:
             aged.append({"case_id": str(case.get("case_id", "")), "status": str(case.get("status", "unknown")),
+                         "lifecycle": str(case.get("lifecycle", "unknown")),
                          "priority": str(case.get("priority", "normal")),
                          "assigned_to": str(case.get("assigned_to") or ""),
                          "age_days": round(age_days, 1), "created_at": created.isoformat()})
