@@ -6,6 +6,8 @@
 
 **Non-goal:** declaring the project production-ready simply because the demo is polished or CI is green. Do not use real employee data or enable live provider writes until identity, authorisation, persistence, reconciliation, and deployment controls have been independently verified.
 
+**Progress note (2026-10-24):** the original risk-first batch has been implemented across PRs #37–#52, including HTTP/URL hardening, export safety, role-matrix tests, Compose runtime smoke coverage, preflight, repeatable sample reset, and strict JSON boundaries. Accessibility improvements are in review; the [security verification matrix](SECURITY_VERIFICATION_MATRIX.md) records current evidence and explicitly open production gates.
+
 ## Delivery sequence (next 15 pull requests)
 
 The sequence is risk-first. Each change should remain small, include regression tests where behavior changes, and be merged only after current-head CI passes. Reorder if investigation uncovers a blocker.
