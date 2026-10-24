@@ -219,6 +219,8 @@ class CaseStore:
             raise WorkflowError("The requester cannot approve their own provider action.")
         if not all(x.strip() for x in (provider, operation, fingerprint)):
             raise CaseStoreError("Provider, operation and fingerprint are required.")
+        if not isinstance(payload, dict):
+            raise CaseStoreError("Provider approval payload must be a JSON object.")
         try:
             safe_payload = json.dumps(self._safe_json(payload), sort_keys=True, ensure_ascii=False, allow_nan=False)
         except (TypeError, ValueError, RecursionError) as exc:
