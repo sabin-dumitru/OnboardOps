@@ -49,17 +49,6 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-## Legacy quick start on Windows
-
-
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python -m streamlit run app.py
-```
-
 ## Recruiter-friendly walkthrough
 
 For a short, repeatable demonstration, use synthetic data only:
@@ -68,7 +57,7 @@ For a short, repeatable demonstration, use synthetic data only:
 2. Open **Case management** and load the synthetic sample cases.
 3. Filter for cases waiting for approval; inspect the requester and status history, then demonstrate that the requester cannot approve their own case.
 4. Assign a technician and change priority on a sample case; show the versioned audit event.
-5. Open **Operations Report** to review workload distribution, oldest pending approvals, and active cases aged seven or more days.
+5. Open **Operations Report** to review workload distribution, oldest pending approvals, and active cases with no updates for at least three days.
 6. Export one case as a JSON handoff packet and export the approval queue as CSV.
 7. Run the offline integration demo from a terminal to show payload-bound approval, duplicate-action protection, and the local audit-chain check without contacting a provider.
 
