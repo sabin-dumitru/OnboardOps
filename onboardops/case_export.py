@@ -28,7 +28,8 @@ def build_case_export(
         "requester_id", "summary", "created_at", "updated_at", "version",
     )
     exported_case = {key: case.get(key) for key in case_fields}
-    exported_case["request_data"] = case.get("request_data", {})
+    request_data = case.get("request_data", {})
+    exported_case["request_data"] = redact_sensitive_fields(request_data) if isinstance(request_data, dict) else {}
     history = [describe_event(event) for event in events]
     return {
         "schema_version": EXPORT_SCHEMA_VERSION,
