@@ -67,3 +67,8 @@ This is a local single-user workflow feature, not a paging system or an SLA engi
 ## Operations reporting
 
 The Operations Report page aggregates local case metadata into status, lifecycle and priority distributions, active/unassigned/high-priority counts, and a seven-day aging view. Aggregation lives in a pure helper with deterministic tests and does not include request payloads in report rows. Reports cover up to the 500 most recently updated cases and aging is a triage signal only, not an SLA measurement. The page is read-only and uses the same case-read permission as the case queue.
+
+
+## Case activity timeline and authorization tests
+
+The case history uses an allow-listed event formatter to show familiar labels and known status/triage changes without dumping arbitrary event metadata into the UI. Timeline rows are newest-first; the underlying event store remains unchanged. Authorization tests exercise the role-permission matrix, demo-mode provider-write denial, malformed proxy subjects, unknown roles and untrusted proxy configuration. These tests validate the application-level boundary, not the security of an external reverse proxy or deployment.
