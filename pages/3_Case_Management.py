@@ -8,6 +8,7 @@ import streamlit as st
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
+from onboardops.ui_accessibility import accessibility_styles
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.audit_view import describe_event
 from onboardops.case_export import build_case_export, render_case_export_json
@@ -30,6 +31,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {border-color: #263852;}
 <div class="ops-title">Case management</div>
 <div class="ops-subtitle">Track onboarding work, review approvals, and inspect a timestamped case history.</div>
 """, unsafe_allow_html=True)
+st.markdown(accessibility_styles(), unsafe_allow_html=True)
 st.caption("Local synthetic records · Role-aware actions · Provider writes disabled")
 headers={}
 try:
