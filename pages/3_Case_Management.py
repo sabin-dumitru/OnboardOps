@@ -10,6 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.audit_view import describe_event
+from onboardops.case_export import build_case_export, render_case_export_json
 from onboardops.cases import CaseStore, CaseStoreError
 from onboardops.demo_fixtures import seed_sample_cases
 from onboardops.workflow import TRANSITIONS, WorkflowError
@@ -193,6 +194,14 @@ with tab_list:
                            "At (UTC)": e["occurred_at"], "Details": e["details"]}
                           for e in reversed(timeline)], use_container_width=True, hide_index=True)
             st.caption(f"{len(events)} recorded event(s), newest first. Details are allow-listed to avoid exposing arbitrary event metadata.")
+            export_packet = build_case_export(case, events)
+            st.download_button(
+                "Export case packet (.json)",
+                data=render_case_export_json(export_packet),
+                file_name=f"{selected}_case_export.json",
+                mime="application/json",
+                help="Includes case fields and a safe, human-readable history; arbitrary event metadata is excluded.",
+            )
     else:
         st.info("No saved cases yet. Create one in the next tab.")
 
