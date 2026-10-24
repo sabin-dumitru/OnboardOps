@@ -28,7 +28,26 @@ class CaseService:
 
     def list_cases(self, *, limit: int = 500) -> list[dict[str, Any]]:
         require_permission(self._actor, "cases:read")
-        return visible_cases(self._actor, self._store.list_cases(limit=limit))
+        roles = self._actor.roles
+        if self._actor.is_demo or roles & frozenset({"onboardops-admin", "onboardops-operator"}):
+            candidates = self._store.list_cases(limit=limit)
+        else:
+            scoped: dict[str, dict[str, Any]] = {}
+            if "onboardops-requester" in roles:
+                scoped.update({
+                    case["case_id"]: case
+                    for case in self._store.list_cases(limit=limit, requester_id=self._actor.subject)
+                })
+            if "onboardops-approver" in roles:
+                scoped.update({
+                    case["case_id"]: case
+                    for case in self._store.list_cases(limit=limit, status="pending_approval")
+                })
+            ordered = sorted(scoped.values(), key=lambda case: case["case_id"])
+            ordered.sort(key=lambda case: case["updated_at"], reverse=True)
+            candidates = ordered[:limit]
+        # Retain the policy filter as defense in depth if a query scope is broadened later.
+        return visible_cases(self._actor, candidates)
 
     def get_case(self, case_id: str) -> dict[str, Any]:
         require_permission(self._actor, "cases:read")
