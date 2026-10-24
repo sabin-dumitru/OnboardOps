@@ -30,7 +30,17 @@ class CaseStore:
         else:
             expanded_path = Path(raw_path).expanduser()
             self.database_path = str(expanded_path)
-            expanded_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            missing_parents = []
+            parent = expanded_path.parent
+            while not parent.exists():
+                missing_parents.append(parent)
+                parent = parent.parent
+            for directory in reversed(missing_parents):
+                try:
+                    directory.mkdir(mode=0o700)
+                except FileExistsError:
+                    if not directory.is_dir():
+                        raise
             try:
                 descriptor = os.open(
                     self.database_path,
