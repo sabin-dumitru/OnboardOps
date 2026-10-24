@@ -113,6 +113,19 @@ class ProviderPayloadTests(unittest.TestCase):
         response.close.assert_called_once()
         self.assertTrue(session.request.call_args.kwargs["stream"])
 
+    def test_stream_read_timeout_reports_ambiguous_outcome_and_closes_response(self):
+        session = Mock()
+        response = Mock(status_code=200, content=b"")
+        response.iter_content.side_effect = requests.Timeout("private transport detail")
+        session.request.return_value = response
+        with self.assertRaises(IntegrationError) as ctx:
+            JsonApiClient("https://example.com", session=session).request("POST", "/api")
+        self.assertEqual(ctx.exception.code, "response_incomplete")
+        self.assertTrue(ctx.exception.retryable)
+        self.assertIn("outcome may be unknown", str(ctx.exception))
+        self.assertNotIn("private transport detail", str(ctx.exception))
+        response.close.assert_called_once()
+
 if __name__ == "__main__":
     unittest.main()
 
