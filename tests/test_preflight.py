@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -50,6 +51,21 @@ class PreflightTests(unittest.TestCase):
         self.assertFalse(by_name["Project data: config/templates.json"]["ok"])
         self.assertFalse(by_name["Output directory"]["ok"])
 
+
+    @unittest.skipUnless(os.name == "posix", "POSIX permission bits are not portable to Windows")
+    def test_preflight_warns_about_existing_group_readable_database(self):
+        database = self.root / "data" / "cases.sqlite3"
+        database.write_text("synthetic placeholder", encoding="utf-8")
+        database.chmod(0o644)
+        checks = run_preflight(self.root, {
+            "ONBOARDOPS_AUTH_MODE": "demo",
+            "ONBOARDOPS_CASE_DB": str(database),
+            "ONBOARDOPS_OUTPUT_DIR": str(self.root / "outputs"),
+        })
+        permissions = next(item for item in checks if item["name"] == "Case database file permissions")
+        self.assertTrue(permissions["ok"])
+        self.assertTrue(permissions["warning"])
+        self.assertNotIn(str(database), permissions["message"])
 
 if __name__ == "__main__":
     unittest.main()
