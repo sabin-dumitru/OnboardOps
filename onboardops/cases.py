@@ -33,6 +33,8 @@ class CaseStore:
           lifecycle TEXT NOT NULL CHECK(lifecycle IN ('onboarding','offboarding','transfer','change')),
           status TEXT NOT NULL CHECK(status IN ('draft','pending_approval','approved','rejected','in_progress','blocked','completed','cancelled')),
           requester_id TEXT NOT NULL, summary TEXT NOT NULL, request_json TEXT NOT NULL,
+          priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('low','normal','high','urgent')),
+          assigned_to TEXT,
           created_at TEXT NOT NULL, updated_at TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1
         );
         CREATE TABLE IF NOT EXISTS case_events (
@@ -52,6 +54,12 @@ class CaseStore:
           approved_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('approved','consumed','revoked'))
         );
         """)
+        # Backward-compatible migrations for databases created by earlier demos.
+        existing_columns = {row["name"] for row in self.connection.execute("PRAGMA table_info(cases)")}
+        if "priority" not in existing_columns:
+            self.connection.execute("ALTER TABLE cases ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'")
+        if "assigned_to" not in existing_columns:
+            self.connection.execute("ALTER TABLE cases ADD COLUMN assigned_to TEXT")
         self.connection.commit()
 
     def close(self) -> None:
@@ -260,6 +268,51 @@ class CaseStore:
             self.connection.rollback()
             raise
         return self.get_provider_approval(approval_id)
+
+    def update_triage(self, *, case_id: str, priority: str, assigned_to: str | None,
+                      actor_id: str, expected_version: int | None = None) -> dict[str, Any]:
+        """Update triage fields atomically and record an auditable case event."""
+        allowed_priorities = {"low", "normal", "high", "urgent"}
+        if priority not in allowed_priorities:
+            raise CaseStoreError("Priority must be low, normal, high or urgent.")
+        actor_id = actor_id.strip()
+        if not actor_id:
+            raise CaseStoreError("Actor identity is required.")
+        assignee = (assigned_to or "").strip() or None
+        if assignee is not None and len(assignee) > 128:
+            raise CaseStoreError("Assignee must be 128 characters or fewer.")
+        now = _now()
+        try:
+            self.connection.execute("BEGIN IMMEDIATE")
+            row = self.connection.execute(
+                "SELECT priority, assigned_to, version FROM cases WHERE case_id=?", (case_id,)
+            ).fetchone()
+            if row is None:
+                raise CaseStoreError("Case not found.")
+            if expected_version is not None and row["version"] != expected_version:
+                raise CaseStoreError("This case changed in another session. Reload it before trying again.")
+            old_priority, old_assignee = row["priority"], row["assigned_to"]
+            updated = self.connection.execute(
+                "UPDATE cases SET priority=?, assigned_to=?, updated_at=?, version=version+1 "
+                "WHERE case_id=? AND version=?",
+                (priority, assignee, now, case_id, row["version"]),
+            )
+            if updated.rowcount != 1:
+                raise CaseStoreError("Concurrent case update detected; reload and retry.")
+            metadata = json.dumps({
+                "priority_from": old_priority, "priority_to": priority,
+                "assigned_to_from": old_assignee, "assigned_to_to": assignee,
+            }, sort_keys=True)
+            self.connection.execute(
+                "INSERT INTO case_events(case_id,event_type,actor_id,from_status,to_status,metadata_json,occurred_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (case_id, "case.triage_updated", actor_id, None, None, metadata, now),
+            )
+            self.connection.commit()
+        except Exception:
+            self.connection.rollback()
+            raise
+        return self.get_case(case_id)
 
     def list_events(self, case_id: str) -> list[dict[str, Any]]:
         if not self.connection.execute("SELECT 1 FROM cases WHERE case_id=?", (case_id,)).fetchone():

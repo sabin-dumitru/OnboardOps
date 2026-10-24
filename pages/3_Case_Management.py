@@ -73,29 +73,39 @@ except Exception as exc:
     cases=[]
 
 # Overview metrics provide a quick scan without replacing the detailed case table.
-metric_cols=st.columns(4)
+metric_cols=st.columns(5)
 metric_cols[0].metric("Total cases",len(cases))
 metric_cols[1].metric("Awaiting approval",sum(c["status"]=="pending_approval" for c in cases))
-metric_cols[2].metric("In progress",sum(c["status"] in {"approved","in_progress"} for c in cases))
-metric_cols[3].metric("Completed",sum(c["status"]=="completed" for c in cases))
+metric_cols[2].metric("In progress",sum(c["status"] in {"approved","in_progress","blocked"} for c in cases))
+metric_cols[3].metric("Urgent / high",sum(c.get("priority","normal") in {"urgent","high"} and c["status"] not in {"completed","cancelled","rejected"} for c in cases))
+metric_cols[4].metric("Unassigned",sum(not c.get("assigned_to") and c["status"] not in {"completed","cancelled","rejected"} for c in cases))
 
 tab_list,tab_create=st.tabs(["Saved cases and history","Create synthetic case"])
 with tab_list:
     st.subheader("Saved cases")
     if cases:
-        filter_col, lifecycle_col, search_col = st.columns([1, 1, 2])
+        filter_col, lifecycle_col, priority_col, assignment_col, search_col = st.columns([1, 1, 1, 1, 2])
         with filter_col:
             status_options = ["All statuses"] + sorted({str(c["status"]) for c in cases})
             status_filter = st.selectbox("Filter by status", status_options)
         with lifecycle_col:
             lifecycle_options = ["All workflows"] + sorted({str(c["lifecycle"]) for c in cases})
             lifecycle_filter = st.selectbox("Filter by workflow", lifecycle_options)
+        with priority_col:
+            priority_options = ["All priorities", "urgent", "high", "normal", "low"]
+            priority_filter = st.selectbox("Priority", priority_options)
+        with assignment_col:
+            assignment_filter = st.selectbox("Assignment", ["Everyone", "Unassigned", "Assigned"])
         with search_col:
             search_term = st.text_input("Search cases", placeholder="Case ID or summary")
         visible_cases = [
             c for c in cases
             if (status_filter == "All statuses" or c["status"] == status_filter)
             and (lifecycle_filter == "All workflows" or c["lifecycle"] == lifecycle_filter)
+            and (priority_filter == "All priorities" or c.get("priority", "normal") == priority_filter)
+            and (assignment_filter == "Everyone" or
+                 (assignment_filter == "Unassigned" and not c.get("assigned_to")) or
+                 (assignment_filter == "Assigned" and bool(c.get("assigned_to"))))
             and search_term.casefold() in (str(c["case_id"]) + " " + str(c["summary"])).casefold()
         ]
         st.caption(f"Showing {len(visible_cases)} of {len(cases)} case(s).")
@@ -103,16 +113,17 @@ with tab_list:
             import csv
             from io import StringIO
             export_buffer = StringIO()
-            writer = csv.DictWriter(export_buffer, fieldnames=["case_id", "lifecycle", "status", "summary", "updated_at", "version"])
+            writer = csv.DictWriter(export_buffer, fieldnames=["case_id", "lifecycle", "status", "priority", "assigned_to", "summary", "updated_at", "version"])
             writer.writeheader()
             writer.writerows({
                 "case_id": c["case_id"], "lifecycle": c["lifecycle"], "status": c["status"],
-                "summary": c["summary"], "updated_at": c["updated_at"], "version": c["version"]
+                "priority": c.get("priority", "normal"), "assigned_to": c.get("assigned_to") or "", "summary": c["summary"], "updated_at": c["updated_at"], "version": c["version"]
             } for c in visible_cases)
             st.download_button("Export filtered cases (.csv)", export_buffer.getvalue(),
                                file_name="onboardops_cases.csv", mime="text/csv")
         if visible_cases:
             st.dataframe([{"Case ID":c["case_id"],"Lifecycle":c["lifecycle"],"Status":c["status"],
+                           "Priority":c.get("priority", "normal").title(),"Assignee":c.get("assigned_to") or "Unassigned",
                            "Summary":c["summary"],"Updated":c["updated_at"],"Version":c["version"]}
                           for c in visible_cases],use_container_width=True,hide_index=True)
             selected=st.selectbox("Open case",[c["case_id"] for c in visible_cases])
@@ -126,6 +137,29 @@ with tab_list:
                 st.write("**Synthetic request data**")
                 st.json(case["request_data"],expanded=False)
             with right:
+                st.write("**Triage**")
+                with st.form(f"triage_{selected}"):
+                    priority_value = st.selectbox(
+                        "Priority", ["low", "normal", "high", "urgent"],
+                        index=["low", "normal", "high", "urgent"].index(case.get("priority", "normal")),
+                    )
+                    assignee_value = st.text_input(
+                        "Assigned technician (leave blank to unassign)",
+                        value=case.get("assigned_to") or "",
+                        max_chars=128,
+                    )
+                    triage_submitted = st.form_submit_button("Save triage")
+                if triage_submitted:
+                    try:
+                        require_permission(actor, "cases:transition")
+                        store.update_triage(
+                            case_id=selected, priority=priority_value, assigned_to=assignee_value,
+                            actor_id=actor.subject, expected_version=case["version"],
+                        )
+                        st.success("Priority and assignment saved.")
+                        st.rerun()
+                    except Exception as exc:
+                        show_error(exc)
                 targets=sorted(t for t in TRANSITIONS.get(case["status"],set()) if t != "approved")
                 if case["status"] == "pending_approval":
                     st.caption("Approval must come from a different identity than the requester.")

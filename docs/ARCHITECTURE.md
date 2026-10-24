@@ -55,3 +55,10 @@ Keep the next steps in this order:
 5. **Live integration tests:** keep them opt-in, isolated to dedicated test tenants and separate from ordinary CI.
 
 Do not combine these into one large refactor. Each boundary should have a small reviewable change and a test strategy before live execution is considered.
+
+
+## Case triage and queue management
+
+The case queue supports priority (low, normal, high, urgent) and technician assignment, with filters for priority and assigned/unassigned work. Summary metrics highlight active urgent/high-priority cases and unassigned active work. Changes are version-checked and written to the case event history. Existing SQLite demo databases are migrated in place with conservative defaults (normal priority, no assignee).
+
+This is a local single-user workflow feature, not a paging system or an SLA engine. Assignment is a text identity field and is not proof that the named technician is authenticated or available. The interface continues to use role checks and synthetic demo data.
