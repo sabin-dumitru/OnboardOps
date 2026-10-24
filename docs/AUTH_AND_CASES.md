@@ -23,7 +23,7 @@ Persisted provider approvals expire after 15 minutes and can be revoked before u
 
 ## Storage boundary
 
-SQLite is single-machine local persistence, not a shared multi-user database. Team deployment needs a managed database, migrations, backups, concurrency tests, retention controls and monitoring. The event history is application history, not a tamper-proof enterprise audit log.
+New SQLite database files are created with owner-only permissions on POSIX systems, and newly created parent directories use a private mode. The preflight warns if an existing database file is accessible to group/others; existing file permissions are not changed automatically. On POSIX, restrict an existing demo database with chmod 600 after confirming the intended file. SQLite is single-machine local persistence, not a shared multi-user database. Team deployment needs a managed database, migrations, backups, concurrency tests, retention controls and monitoring. The event history is application history, not a tamper-proof enterprise audit log.
 
 ## Backup and restore (local demo)
 
