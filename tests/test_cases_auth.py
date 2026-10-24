@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
 from onboardops.cases import CaseStore, CaseStoreError
+from onboardops.demo_fixtures import SAMPLE_CASES, seed_sample_cases
 from onboardops.workflow import WorkflowError
 
 class AuthTests(unittest.TestCase):
@@ -37,6 +38,24 @@ class CaseStoreTests(unittest.TestCase):
     def tearDown(self):
         self.store.close()
         self.temp.cleanup()
+    def test_synthetic_fixtures_cover_lifecycle_and_are_idempotent(self):
+        created = seed_sample_cases(self.store)
+        self.assertEqual(created, 4)
+        self.assertEqual(seed_sample_cases(self.store), 0)
+        cases = {case["case_id"]: case for case in self.store.list_cases(limit=500)}
+        self.assertEqual(
+            {case_id: cases[case_id]["status"] for case_id, _, _ in SAMPLE_CASES},
+            {
+                "CASE-SAMPLE-1001": "draft",
+                "CASE-SAMPLE-1002": "pending_approval",
+                "CASE-SAMPLE-1003": "in_progress",
+                "CASE-SAMPLE-1004": "completed",
+            },
+        )
+        for case_id, _, _ in SAMPLE_CASES:
+            self.assertTrue(cases[case_id]["request_data"]["synthetic"])
+            self.assertTrue(cases[case_id]["request_data"]["employee_id"].startswith("DEMO-"))
+
     def test_case_persists_and_history_is_recorded(self):
         self.store.create_case(case_id="CASE-100",lifecycle="onboarding",requester_id="alice",summary="Synthetic onboarding",request_data={"employee_id":"DEMO-100"})
         self.store.transition(case_id="CASE-100",target="pending_approval",actor_id="alice",expected_version=1)
