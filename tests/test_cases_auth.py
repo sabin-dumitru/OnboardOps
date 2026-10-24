@@ -146,6 +146,84 @@ class CaseStoreTests(unittest.TestCase):
         self.assertEqual(case["request_data"]["team"],"IT")
 
 
+    def test_request_data_must_be_an_object(self):
+        with self.assertRaises(CaseStoreError):
+            self.store.create_case(
+                case_id="CASE-PAYLOAD-1", lifecycle="onboarding", requester_id="alice",
+                summary="Invalid payload", request_data=["not", "an", "object"],
+            )
+
+    def test_request_data_is_bounded_after_secret_redaction(self):
+        with self.assertRaises(CaseStoreError):
+            self.store.create_case(
+                case_id="CASE-PAYLOAD-2", lifecycle="onboarding", requester_id="alice",
+                summary="Oversized payload", request_data={"description": "x" * (65 * 1024)},
+            )
+        self.assertEqual(self.store.list_cases(limit=500), [])
+
+    def test_payload_size_limit_counts_utf8_bytes(self):
+        case = self.store.create_case(
+            case_id="CASE-PAYLOAD-3", lifecycle="onboarding", requester_id="alice",
+            summary="Unicode payload", request_data={"department": "équipe"},
+        )
+        self.assertEqual(case["request_data"]["department"], "équipe")
+
+
+    def test_provider_approval_expiry_revokes_and_audits_without_consuming(self):
+        self.store.create_case(case_id="CASE-EXPIRY-1", lifecycle="onboarding",
+                               requester_id="alice", summary="Approval expiry")
+        approval = self.store.record_provider_approval(
+            case_id="CASE-EXPIRY-1", requester_id="alice", approver_id="bob",
+            provider="github", operation="create_issue", payload={"title": "Demo"},
+            fingerprint="fingerprint-demo",
+        )
+        self.assertTrue(approval["expires_at"])
+        self.store.connection.execute(
+            "UPDATE provider_approvals SET expires_at=? WHERE approval_id=?",
+            ("2000-01-01T00:00:00+00:00", approval["approval_id"]),
+        )
+        self.store.connection.commit()
+        with self.assertRaisesRegex(CaseStoreError, "expired"):
+            self.store.consume_provider_approval(
+                approval["approval_id"], expected_fingerprint="fingerprint-demo",
+            )
+        self.assertEqual(self.store.get_provider_approval(approval["approval_id"])["status"], "revoked")
+        self.assertEqual(self.store.list_events("CASE-EXPIRY-1")[-1]["event_type"],
+                         "provider_action.approval_expired")
+
+    def test_unused_provider_approval_can_be_revoked_once(self):
+        self.store.create_case(case_id="CASE-REVOKE-1", lifecycle="onboarding",
+                               requester_id="alice", summary="Approval revoke")
+        approval = self.store.record_provider_approval(
+            case_id="CASE-REVOKE-1", requester_id="alice", approver_id="bob",
+            provider="github", operation="create_issue", payload={"title": "Demo"},
+            fingerprint="fingerprint-demo",
+        )
+        revoked = self.store.revoke_provider_approval(approval["approval_id"], actor_id="admin")
+        self.assertEqual(revoked["status"], "revoked")
+        self.assertEqual(self.store.list_events("CASE-REVOKE-1")[-1]["actor_id"], "admin")
+        with self.assertRaisesRegex(CaseStoreError, "no longer available"):
+            self.store.consume_provider_approval(
+                approval["approval_id"], expected_fingerprint="fingerprint-demo",
+            )
+
+    def test_legacy_provider_approval_schema_migrates_with_expiry(self):
+        self.store.create_case(case_id="CASE-EXPIRY-MIGRATE", lifecycle="onboarding",
+                               requester_id="alice", summary="Legacy approval")
+        approval = self.store.record_provider_approval(
+            case_id="CASE-EXPIRY-MIGRATE", requester_id="alice", approver_id="bob",
+            provider="github", operation="create_issue", payload={"title": "Demo"},
+            fingerprint="fingerprint-demo",
+        )
+        self.store.connection.execute("ALTER TABLE provider_approvals DROP COLUMN expires_at")
+        self.store.connection.commit()
+        self.store.close()
+        self.store = CaseStore(self.path)
+        migrated = self.store.get_provider_approval(approval["approval_id"])
+        self.assertTrue(migrated["expires_at"])
+        self.assertEqual(migrated["status"], "approved")
+
+
     def test_camel_case_credentials_are_redacted(self):
         case = self.store.create_case(
             case_id="CASE-KEYS-1", lifecycle="onboarding", requester_id="alice",
