@@ -61,3 +61,41 @@ def seed_sample_cases(store: Any) -> int:
             )
         existing_ids.add(case_id)
     return created
+
+
+
+def reset_sample_cases(store: Any) -> int:
+    """Delete only the fixed sample fixture IDs and their dependent local history.
+
+    This is intentionally narrower than a general database reset: operator-created
+    cases are never selected, even if they are also marked synthetic.
+    """
+    fixture_ids = tuple(case_id for case_id, _, _ in SAMPLE_CASES)
+    placeholders = ",".join("?" for _ in fixture_ids)
+    try:
+        store.connection.execute("BEGIN IMMEDIATE")
+        rows = store.connection.execute(
+            f"SELECT case_id FROM cases WHERE case_id IN ({placeholders})",
+            fixture_ids,
+        ).fetchall()
+        existing_ids = tuple(row["case_id"] for row in rows)
+        if existing_ids:
+            selected = ",".join("?" for _ in existing_ids)
+            store.connection.execute(
+                f"DELETE FROM provider_approvals WHERE case_id IN ({selected})",
+                existing_ids,
+            )
+            store.connection.execute(
+                f"DELETE FROM case_events WHERE case_id IN ({selected})",
+                existing_ids,
+            )
+            store.connection.execute(
+                f"DELETE FROM cases WHERE case_id IN ({selected})",
+                existing_ids,
+            )
+        store.connection.commit()
+        return len(existing_ids)
+    except Exception:
+        if store.connection.in_transaction:
+            store.connection.rollback()
+        raise
