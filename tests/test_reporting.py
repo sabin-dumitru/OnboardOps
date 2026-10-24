@@ -47,12 +47,30 @@ class OperationsReportTests(unittest.TestCase):
         self.assertNotIn("request_data", queue[0])
         self.assertNotIn("DEMO-SECRET", str(queue))
 
+    def test_stale_cases_use_last_update_and_exclude_closed_cases(self):
+        now = datetime(2026, 10, 24, tzinfo=timezone.utc)
+        cases = [
+            {"case_id": "CASE-STALE", "status": "in_progress", "lifecycle": "onboarding",
+             "priority": "high", "assigned_to": None, "created_at": "2026-10-01T00:00:00Z",
+             "updated_at": "2026-10-19T00:00:00Z", "request_data": {"private": "omit"}},
+            {"case_id": "CASE-FRESH", "status": "blocked", "lifecycle": "transfer",
+             "created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-23T12:00:00Z"},
+            {"case_id": "CASE-CLOSED", "status": "completed", "lifecycle": "offboarding",
+             "created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-01T00:00:00Z"},
+            {"case_id": "CASE-BAD-TIME", "status": "in_progress", "updated_at": "invalid"},
+        ]
+        report = build_operations_report(cases, now=now)
+        self.assertEqual([case["case_id"] for case in report["stale_cases"]], ["CASE-STALE"])
+        self.assertEqual(report["stale_cases"][0]["idle_days"], 5.0)
+        self.assertNotIn("request_data", report["stale_cases"][0])
+
     def test_empty_report_has_stable_priority_keys(self):
         report = build_operations_report([], now=datetime(2026, 1, 1, tzinfo=timezone.utc))
         self.assertEqual(report["total"], 0)
         self.assertEqual(report["priority_counts"], {"urgent": 0, "high": 0, "normal": 0, "low": 0})
         self.assertEqual(report["aging_cases"], [])
         self.assertEqual(report["approval_queue"], [])
+        self.assertEqual(report["stale_cases"], [])
 
 
 if __name__ == "__main__":

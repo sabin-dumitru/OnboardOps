@@ -48,6 +48,24 @@ def build_operations_report(cases: Iterable[dict[str, Any]], *, now: datetime | 
                          "assigned_to": str(case.get("assigned_to") or ""),
                          "age_days": round(age_days, 1), "created_at": created.isoformat()})
 
+    stale_cases = []
+    for case in active:
+        updated = _parse_timestamp(case.get("updated_at"))
+        if updated is None:
+            continue
+        idle_days = max(0, (current - updated).total_seconds() / 86400)
+        if idle_days >= 3:
+            stale_cases.append({
+                "case_id": str(case.get("case_id", "")),
+                "status": str(case.get("status", "unknown")),
+                "lifecycle": str(case.get("lifecycle", "unknown")),
+                "priority": str(case.get("priority", "normal")),
+                "assigned_to": str(case.get("assigned_to") or ""),
+                "idle_days": round(idle_days, 1),
+                "updated_at": updated.isoformat(),
+            })
+    stale_cases.sort(key=lambda c: (-c["idle_days"], c["case_id"]))
+
     approval_queue = []
     for case in items:
         if case.get("status") != "pending_approval":
@@ -77,4 +95,5 @@ def build_operations_report(cases: Iterable[dict[str, Any]], *, now: datetime | 
         "priority_counts": {priority: priority_counts.get(priority, 0) for priority in PRIORITY_ORDER},
         "aging_cases": sorted(aged, key=lambda c: (-c["age_days"], c["case_id"])),
         "approval_queue": approval_queue,
+        "stale_cases": stale_cases,
     }

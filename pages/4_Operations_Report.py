@@ -27,7 +27,7 @@ st.markdown("""
 </style>
 <div class="ops-eyebrow">WORKSPACE · REPORTING</div>
 <div class="ops-title">Operations report</div>
-<div class="ops-subtitle">A read-only snapshot of workload, approval waiting time, prioritisation, and aging cases.</div>
+<div class="ops-subtitle">A read-only snapshot of workload, approval waiting time, stale work, prioritisation, and aging cases.</div>
 """, unsafe_allow_html=True)
 st.caption("Local records only · No provider calls · Counts are not SLA measurements")
 
@@ -103,6 +103,32 @@ else:
     st.success("No cases are waiting for approval.")
 
 st.caption("Waiting time is measured from case creation in UTC. It is a prioritisation signal, not an SLA target.")
+
+st.subheader("Stale active cases · no update for 3+ days")
+if report["stale_cases"]:
+    st.dataframe([{
+        "Case ID": c["case_id"], "Idle (days)": c["idle_days"], "Status": c["status"],
+        "Lifecycle": c["lifecycle"], "Priority": c["priority"].title(),
+        "Assignee": c["assigned_to"] or "Unassigned", "Updated (UTC)": c["updated_at"],
+    } for c in report["stale_cases"]], use_container_width=True, hide_index=True)
+    stale_export = StringIO()
+    stale_writer = csv.DictWriter(stale_export, fieldnames=[
+        "case_id", "idle_days", "status", "lifecycle", "priority", "assigned_to", "updated_at"
+    ])
+    stale_writer.writeheader()
+    stale_writer.writerows({
+        "case_id": c["case_id"], "idle_days": c["idle_days"], "status": c["status"],
+        "lifecycle": c["lifecycle"], "priority": c["priority"],
+        "assigned_to": c["assigned_to"], "updated_at": c["updated_at"],
+    } for c in report["stale_cases"])
+    st.download_button(
+        "Export stale cases (.csv)", stale_export.getvalue(),
+        file_name="onboardops_stale_cases.csv", mime="text/csv",
+    )
+else:
+    st.success("No active cases have been idle for three or more days.")
+
+st.caption("Staleness is measured from the last update in UTC. The three-day threshold is a configurable product heuristic, not an SLA.")
 
 st.subheader("Aging active cases · 7+ days")
 if report["aging_cases"]:
