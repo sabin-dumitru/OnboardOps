@@ -121,3 +121,8 @@ The next production-oriented milestones are deliberately separate from the curre
 5. Add opt-in live contract tests against isolated provider test tenants; keep them out of ordinary CI.
 
 OnboardOps is a personal portfolio project. It is an integration and workflow prototype, not a production provisioning system.
+
+
+## Engineering roadmap
+
+See the [presentation and company-readiness plan](docs/PRESENTATION_READINESS_PLAN.md) for the next risk-first improvement sequence and explicit production-readiness gates.
