@@ -25,6 +25,18 @@ The UI does not expose live provider writes. Do not enable live writes until an 
 
 SQLite is single-machine local persistence, not a shared multi-user database. Team deployment needs a managed database, migrations, backups, concurrency tests, retention controls and monitoring. The event history is application history, not a tamper-proof enterprise audit log.
 
+## Backup and restore (local demo)
+
+Create a consistent SQLite backup while the app is running:
+
+```powershell
+python scripts/backup_cases.py --destination backups/cases-2026-10-24.sqlite3
+```
+
+The source defaults to `ONBOARDOPS_CASE_DB` or `data/onboardops_cases.sqlite3`. The helper uses SQLite's online backup API (so committed WAL data is included), checks the backup with `PRAGMA integrity_check`, and refuses to overwrite an existing destination unless `--overwrite` is explicitly passed. Store backups somewhere with appropriately restricted filesystem permissions; case payloads may contain sensitive data even though credentials are redacted by key name.
+
+To restore, stop Streamlit first, preserve a copy of the current database, then copy the verified backup to the configured database path. Start the app and verify expected case counts and histories before resuming use. Do not overwrite a live database file or treat this local procedure as a tested disaster-recovery plan. This utility backs up the case database only; it does not back up the separate provider action ledger if that ledger is configured elsewhere.
+
 ## Tests
 
 ```powershell
