@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -60,7 +61,9 @@ def run_preflight(root: str | Path | None = None,
 
     database_value = str(env.get("ONBOARDOPS_CASE_DB", project_root / "data" / "onboardops_cases.sqlite3"))
     database_path = Path(database_value).expanduser()
-    database_parent = database_path.parent if database_path.is_absolute() else project_root / database_path.parent
+    if not database_path.is_absolute():
+        database_path = project_root / database_path
+    database_parent = database_path.parent
     db_ready = database_parent.is_dir() and os.access(database_parent, os.W_OK)
     results.append(_check(
         "Case database location",
@@ -68,6 +71,16 @@ def run_preflight(root: str | Path | None = None,
         "parent directory exists and is writable" if db_ready else
         "database parent directory is missing or not writable",
     ))
+    if database_path.is_file() and os.name == "posix":
+        mode = stat.S_IMODE(database_path.stat().st_mode)
+        private = not bool(mode & 0o077)
+        results.append(_check(
+            "Case database file permissions",
+            True,
+            "existing database file is private to its owner" if private else
+            "existing database is readable or writable by group/others; restrict it with chmod 600",
+            warning=not private,
+        ))
 
     output_value = str(env.get("ONBOARDOPS_OUTPUT_DIR", project_root / "outputs"))
     output_path = Path(output_value).expanduser()
