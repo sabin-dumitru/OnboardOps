@@ -10,6 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from onboardops.ui_accessibility import accessibility_styles
 from onboardops.auth import AuthorizationError, require_permission, resolve_actor
+from onboardops.case_access import visible_cases
 from onboardops.audit_view import describe_event
 from onboardops.case_export import build_case_export, render_case_export_json
 from onboardops.csv_safety import safe_csv_row
@@ -76,6 +77,9 @@ try:
 except Exception as exc:
     show_error(exc)
     cases=[]
+
+# Apply record-level scope before metrics, search, history and exports are rendered.
+cases = visible_cases(actor, cases)
 
 # Overview metrics provide a quick scan without replacing the detailed case table.
 metric_cols=st.columns(5)
