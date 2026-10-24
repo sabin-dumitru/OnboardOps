@@ -64,6 +64,7 @@ with st.expander("Portfolio demo helpers", expanded=False):
         try:
             if not actor.is_demo:
                 raise AuthorizationError("Synthetic fixture loading is available only in local demo mode.")
+            require_permission(actor, "cases:create")
             created = seed_sample_cases(store)
             if created:
                 st.success(f"Added {created} synthetic sample case(s). Existing sample cases were left unchanged.")
@@ -246,12 +247,14 @@ with tab_list:
 
 with tab_create:
     st.subheader("Create a local synthetic case")
+    if not has_permission(actor, "cases:create"):
+        st.info("Your role can review cases but cannot create new ones.")
     with st.form("create_case",clear_on_submit=False):
         case_id=st.text_input("Case ID",value="CASE-DEMO-1001")
         lifecycle=st.selectbox("Lifecycle",["onboarding","offboarding","transfer","change"])
         summary=st.text_input("Summary",value="Prepare synthetic employee onboarding")
         payload_text=st.text_area("Optional synthetic request JSON",value='{"employee_id":"DEMO-1001","operating_system":"Windows"}')
-        submitted=st.form_submit_button("Save case")
+        submitted=st.form_submit_button("Save case", disabled=not has_permission(actor, "cases:create"))
     if submitted:
         try:
             require_permission(actor,"cases:create")
