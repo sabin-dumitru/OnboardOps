@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -66,6 +67,45 @@ class PreflightTests(unittest.TestCase):
         self.assertTrue(permissions["ok"])
         self.assertTrue(permissions["warning"])
         self.assertNotIn(str(database), permissions["message"])
+
+    def test_preflight_checks_existing_case_database_read_only(self):
+        database = self.root / "data" / "cases.sqlite3"
+        with sqlite3.connect(database) as connection:
+            connection.execute("CREATE TABLE cases (case_id TEXT PRIMARY KEY)")
+            connection.execute("CREATE TABLE case_events (event_id INTEGER PRIMARY KEY)")
+        checks = run_preflight(self.root, {
+            "ONBOARDOPS_AUTH_MODE": "demo",
+            "ONBOARDOPS_CASE_DB": str(database),
+            "ONBOARDOPS_OUTPUT_DIR": str(self.root / "outputs"),
+        })
+        integrity = next(item for item in checks if item["name"] == "Case database integrity")
+        self.assertTrue(integrity["ok"])
+        self.assertFalse(integrity["warning"])
+
+    def test_preflight_reports_corrupt_database_without_echoing_path(self):
+        database = self.root / "data" / "cases.sqlite3"
+        database.write_text("not a sqlite database", encoding="utf-8")
+        checks = run_preflight(self.root, {
+            "ONBOARDOPS_AUTH_MODE": "demo",
+            "ONBOARDOPS_CASE_DB": str(database),
+            "ONBOARDOPS_OUTPUT_DIR": str(self.root / "outputs"),
+        })
+        integrity = next(item for item in checks if item["name"] == "Case database integrity")
+        self.assertFalse(integrity["ok"])
+        self.assertNotIn(str(database), integrity["message"])
+        self.assertNotIn(str(self.root), integrity["message"])
+
+    def test_preflight_warns_for_empty_database_file(self):
+        database = self.root / "data" / "cases.sqlite3"
+        database.touch()
+        checks = run_preflight(self.root, {
+            "ONBOARDOPS_AUTH_MODE": "demo",
+            "ONBOARDOPS_CASE_DB": str(database),
+            "ONBOARDOPS_OUTPUT_DIR": str(self.root / "outputs"),
+        })
+        integrity = next(item for item in checks if item["name"] == "Case database integrity")
+        self.assertTrue(integrity["ok"])
+        self.assertTrue(integrity["warning"])
 
 if __name__ == "__main__":
     unittest.main()
