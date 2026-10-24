@@ -23,10 +23,10 @@ class Actor:
         return self.mode == "demo"
 
 _ROLE_PERMISSIONS = {
-    "onboardops-admin": frozenset({"cases:read", "cases:create", "cases:transition", "approvals:review", "provider:write"}),
+    "onboardops-admin": frozenset({"cases:read", "cases:create", "cases:transition", "approvals:review", "provider:write", "integrations:read"}),
     "onboardops-requester": frozenset({"cases:read", "cases:create"}),
     "onboardops-approver": frozenset({"cases:read", "approvals:review"}),
-    "onboardops-operator": frozenset({"cases:read", "cases:transition", "provider:write"}),
+    "onboardops-operator": frozenset({"cases:read", "cases:transition", "provider:write", "integrations:read"}),
     "onboardops-demo": frozenset({"cases:read", "cases:create", "cases:transition"}),
 }
 _SUBJECT_RE = re.compile(r"^[A-Za-z0-9@._:-]{1,128}$")

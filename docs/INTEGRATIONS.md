@@ -14,7 +14,7 @@ Provider adapters are separate from the pure checklist engine. Importing a conne
 
 ## Configuration and secrets
 
-No credentials belong in source code, issue comments, screenshots or committed files. Use environment variables or a deployment secret manager. The committed environment example contains names only and is not automatically loaded. The Integration Lab reads configured values from environment variables, exposes selected read-only lookups and renders offline write previews. It does not collect or display secrets, and it intentionally does not execute live writes from the UI. Adapters accept credentials as constructor arguments so callers can connect a suitable secret source.
+No credentials belong in source code, issue comments, screenshots or committed files. Use environment variables or a deployment secret manager. The committed environment example contains names only and is not automatically loaded. The Integration Lab reads configured values from environment variables, exposes selected read-only lookups only to an explicitly authorised admin/operator identity in trusted-proxy mode, and renders offline write previews. The local demo identity can inspect readiness and previews but cannot trigger live provider reads. The page does not collect or display secrets, and it intentionally does not execute live writes from the UI. Adapters accept credentials as constructor arguments so callers can connect a suitable secret source.
 
 ## Safe write contract
 
